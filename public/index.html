@@ -654,17 +654,32 @@ const DICT_B64 = "H4sIAAAAAAACA2x923asOM/tfb8lK3HX0v8VRdrgjM56+j2wNA+u3heJpw6WZc
     el("authModal").hidden = false;
   }
   function openAccount(){
+    const safe = (NET.username || "").replace(/"/g, "&quot;");
     el("authCard").innerHTML = `
       <div class="kicker">Compte</div>
       <div class="account-name">${NET.username || ""}</div>
-      <p>Connecté — tes scores sont rattachés à ce compte.</p>
+      <p>Connecté — change ton pseudo ou déconnecte-toi.</p>
       <div class="stack">
-        <button class="btn primary" id="auLogout">Se déconnecter</button>
+        <input id="auNewName" maxlength="24" placeholder="Nouveau pseudo" value="${safe}">
+        <div class="autherr" id="auErr2"></div>
+        <button class="btn primary" id="auRename">Enregistrer le pseudo</button>
+        <button class="btn ghost" id="auLogout">Se déconnecter</button>
         <button class="btn ghost" id="auClose">Fermer</button>
       </div>`;
+    el("auRename").onclick = doRename;
     el("auLogout").onclick = doLogout;
     el("auClose").onclick = closeAuth;
+    el("auNewName").onkeydown = (e) => { if (e.key === "Enter") doRename(); };
     el("authModal").hidden = false;
+  }
+  async function doRename(){
+    const v = el("auNewName").value.trim();
+    const err = el("auErr2"); if (err) err.textContent = "";
+    if (v.length < 2 || v.length > 24){ if (err) err.textContent = "Entre 2 et 24 caractères."; return; }
+    if (v === NET.username){ closeAuth(); return; }
+    const r = await apiPost("/api/auth/update-user", { name: v });
+    if (r.status === 200){ await refreshIdentity(); openAccount(); toast("ok", "pseudo mis à jour"); }
+    else { if (err) err.textContent = (r.json && (r.json.message || r.json.error)) || "Échec, réessaie."; }
   }
   async function doEmail(signup){
     const email = el("auEmail").value.trim(), pass = el("auPass").value;
