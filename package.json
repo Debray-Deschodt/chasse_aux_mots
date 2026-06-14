@@ -1,0 +1,12 @@
+{
+  "name": "chasse-au-mot-serveur",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Petit serveur de manches synchronisées + scores partagés pour Chasse au mot",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": { "node": ">=18" }
+}
