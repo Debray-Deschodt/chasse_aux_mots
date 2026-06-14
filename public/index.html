@@ -60,6 +60,11 @@ body:not(.online) #accountBtn{display:none}
 .forming .pts{font-size:12px; font-weight:700; color:#fff; background:var(--green); padding:2px 9px; border-radius:6px; opacity:0; transition:opacity .15s}
 .forming .pts.on{opacity:1}
 .forming .hint{color:var(--muted); font-size:14px; font-weight:500}
+.forming .w.flash{font-size:20px; animation:formpop .18s ease-out}
+.forming .w.ok{color:var(--green)}
+.forming .w.burn,.forming .w.no{color:var(--magenta)}
+.forming .pts.burn{background:var(--magenta)}
+@keyframes formpop{from{transform:scale(.92); opacity:.3} to{transform:scale(1); opacity:1}}
 
 .boardwrap{position:relative; aspect-ratio:1; background:var(--board); border:1.5px solid var(--line); border-radius:16px; padding:12px; box-shadow:0 16px 34px -18px rgba(25,22,19,.45)}
 .grid{position:relative; width:100%; height:100%; display:grid; gap:8px; z-index:2; touch-action:none}
@@ -337,6 +342,56 @@ const DICT_B64 = "H4sIAAAAAAACA2x923asOM/tfb8lK3HX0v8VRdrgjM56+j2wNA+u3heJpw6WZc
     pe.classList.toggle("on", w.length >= 3 && pts2 > 0);
   }
 
+  // Retour visuel d'un mot : s'affiche dans la zone au-dessus de la grille (là où apparaît le +N)
+  let flashT;
+  function flash(kind, msg, pts){
+    const fw = el("formWord"), pe = el("formPts");
+    el("hint").style.display = "none";
+    fw.textContent = msg; fw.className = "w flash " + kind;
+    if (pts){ pe.textContent = pts; pe.className = "pts on " + kind; }
+    else { pe.textContent = ""; pe.className = "pts"; }
+    clearTimeout(flashT);
+    flashT = setTimeout(() => { fw.className = "w"; pe.className = "pts"; drawPath(); }, 1200);
+  }
+
+  // ---------- Sons (Web Audio, zéro fichier) ----------
+  let actx;
+  function audio(){
+    if (!actx){
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return null;
+      try { actx = new AC(); } catch { return null; }
+    }
+    if (actx.state === "suspended") actx.resume();
+    return actx;
+  }
+  // Note douce : sinus + octave discrète, attaque tendre, longue extinction (cloche feutrée)
+  function note(freq, when = 0, { dur = 0.6, gain = 0.12 } = {}){
+    const ac = audio(); if (!ac) return;
+    const t0 = ac.currentTime + when;
+    const g = ac.createGain();
+    g.gain.setValueAtTime(0.0001, t0);
+    g.gain.exponentialRampToValueAtTime(gain, t0 + 0.03);   // attaque tendre
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);  // extinction longue
+    g.connect(ac.destination);
+    const o1 = ac.createOscillator(); o1.type = "sine"; o1.frequency.value = freq;
+    const o2 = ac.createOscillator(); o2.type = "sine"; o2.frequency.value = freq * 2;
+    const g2 = ac.createGain(); g2.gain.value = 0.25;       // octave discrète, pour la chaleur
+    o1.connect(g); o2.connect(g2).connect(g);
+    o1.start(t0); o2.start(t0); o1.stop(t0 + dur + 0.05); o2.stop(t0 + dur + 0.05);
+  }
+  // Uniquement quand un mot est validé : note(s) douce(s) qui montent un peu avec la longueur
+  const SFX_SCALE = [0, 2, 4, 7, 9, 12, 14, 16]; // penta majeure
+  function sfxWord(len){
+    const base = 330; // mi4
+    const step = Math.min(Math.max(len - 3, 0), SFX_SCALE.length - 3);
+    const notes = len >= 8 ? 3 : len >= 5 ? 2 : 1;
+    for (let i = 0; i < notes; i++){
+      const semis = SFX_SCALE[Math.min(step + i, SFX_SCALE.length - 1)];
+      note(base * Math.pow(2, semis / 12), i * 0.12, { dur: 0.6, gain: 0.12 });
+    }
+  }
+
   // ---------- Validation ----------
   const PRAISE = {
     tiny: ["3 lettres… sérieux ?", "c'est ça ton niveau ?", "minable, mais validé", "un mot de bébé", "fais un effort", "pitié, plus long", "t'as pas honte ?"],
@@ -360,13 +415,14 @@ const DICT_B64 = "H4sIAAAAAAACA2x923asOM/tfb8lK3HX0v8VRdrgjM56+j2wNA+u3heJpw6WZc
     clearPath();
     if (!w) return;
     if (w.length < 3) return; // trop court : on annule sans bruit
-    if (state.found.has(w)) return toast("no", pick(["déjà fait", "tu l'as déjà", "recommence pas"]), w);
-    if (!state.dict.has(w)) return toast("no", pick(["ça existe pas", "nope", "inventé ?"]), w);
+    if (state.found.has(w)) return flash("no", pick(["déjà fait", "tu l'as déjà", "recommence pas"]), "");
+    if (!state.dict.has(w)) return flash("no", pick(["ça existe pas", "nope", "inventé ?"]), "");
     const pts = scoreFor(w.length);
     state.found.set(w, pts); state.score += pts;
     if (pts > state.best.pts) state.best = { word: w, pts };
     const pr = praise(w.length);
-    render(); toast(pr.kind, pr.msg, "+" + pts);
+    sfxWord(w.length);
+    render(); flash(pr.kind, pr.msg, "+" + pts);
     if (NET.online) submitScore();
     for (const p of pathCopy){ const t = tileAt(p.r,p.c); if (t){ t.classList.add("pop"); setTimeout(() => t.classList.remove("pop"), 300); } }
   }
@@ -722,6 +778,7 @@ const DICT_B64 = "H4sIAAAAAAACA2x923asOM/tfb8lK3HX0v8VRdrgjM56+j2wNA+u3heJpw6WZc
   gridEl.addEventListener("pointerdown", (ev) => {
     const t = ev.target.closest(".tile"); if (!t || !state.running) return;
     ev.preventDefault(); state.pointerDown = true;
+    audio(); // débloque l'audio au 1er geste (politique autoplay)
     clearPath();
     addTile(+t.dataset.r, +t.dataset.c);
     gridEl.setPointerCapture?.(ev.pointerId);
