@@ -1,0 +1,5 @@
+node_modules/
+.env
+auth.db
+auth.db-*
+*.log

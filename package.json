@@ -1,0 +1,20 @@
+{
+  "name": "chasse-au-mot-serveur",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Petit serveur de manches synchronisées + scores partagés pour Chasse au mot",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "@libsql/client": "^0.17.3",
+    "@libsql/kysely-libsql": "^0.4.1",
+    "better-auth": "^1.6.18",
+    "kysely": "^0.29.2"
+  }
+}
