@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>Chasse au mot</title>
 <meta name="description" content="Trouve un maximum de mots dans la grille, en manches synchronisées.">
 <link rel="manifest" href="/manifest.webmanifest">
@@ -31,7 +31,7 @@
   --ui:"Space Grotesk", system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
 }
 *{box-sizing:border-box; -webkit-tap-highlight-color:transparent}
-html,body{margin:0; height:100%}
+html,body{margin:0; height:100%; overflow-x:hidden}
 body{
   font-family:var(--ui); color:var(--text);
   background:radial-gradient(120% 80% at 50% -10%, #fbf7ee 0%, var(--bg) 55%, #ece3d1 100%);
@@ -54,10 +54,13 @@ header{display:flex; align-items:flex-end; justify-content:space-between; gap:12
 .timebar{height:6px; border-radius:99px; background:#e7dfcd; overflow:hidden}
 .timebar > i{display:block; height:100%; width:100%; background:linear-gradient(90deg,var(--magenta),#ff6aa0); transform-origin:left; transition:transform 1s linear}
 
-.seed{display:flex; align-items:center; gap:10px; font-size:13px; color:var(--muted); font-weight:600; text-transform:uppercase; letter-spacing:.04em}
+.seed{display:flex; align-items:center; flex-wrap:wrap; gap:10px; font-size:13px; color:var(--muted); font-weight:600; text-transform:uppercase; letter-spacing:.04em}
 .seed b{color:var(--magenta); font-weight:700; font-family:var(--ui)}
-.user{margin-left:auto; font-weight:700; color:var(--magenta); font-size:12.5px; text-transform:uppercase; letter-spacing:.03em}
+.user{margin-left:auto; font-weight:700; color:var(--magenta); font-size:12.5px; text-transform:uppercase; letter-spacing:.03em;
+  max-width:42vw; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+#accountBtn{display:inline-block; max-width:46vw; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; vertical-align:middle}
 body:not(.online) .user{display:none}
+body.authed .user{display:none}
 body.online #lobbyBtn{display:none}
 body:not(.online) #accountBtn{display:none}
 #authModal{z-index:60}
@@ -68,6 +71,13 @@ body:not(.online) #accountBtn{display:none}
   font:inherit; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.05em; padding:7px 12px; border-radius:8px; cursor:pointer}
 .icobtn:active{transform:translateY(1px)}
 .icobtn.solid{background:var(--magenta); color:#fff; border-color:transparent}
+#installBar{position:fixed; left:50%; transform:translateX(-50%); bottom:max(12px, env(safe-area-inset-bottom)); z-index:70;
+  display:flex; align-items:center; gap:8px; max-width:calc(100vw - 24px);
+  background:var(--ink); color:#fff; padding:8px 8px 8px 14px; border-radius:12px; box-shadow:0 8px 24px rgba(0,0,0,.18); font-size:13px; font-weight:600}
+#installBar .ibtxt{min-width:0}
+#installBar button{font:inherit; font-weight:700; cursor:pointer; border:none; border-radius:8px}
+#installBtn{background:var(--magenta); color:#fff; padding:7px 12px; white-space:nowrap}
+#installClose{background:transparent; color:#fff; opacity:.65; padding:4px 8px; font-size:15px}
 
 .forming{min-height:34px; display:flex; align-items:center; justify-content:center; gap:10px}
 .forming .w{font-family:var(--display); font-weight:400; font-size:28px; letter-spacing:.08em; color:var(--ink); text-transform:uppercase}
@@ -187,6 +197,13 @@ body:not(.online) #accountBtn{display:none}
 </div>
 
 <div class="toast" id="toast"></div>
+
+<!-- Invitation à installer l'app (mobile/tablette en navigateur uniquement) -->
+<div id="installBar" hidden>
+  <span class="ibtxt" id="installTxt">Installe l'app sur ton écran d'accueil</span>
+  <button id="installBtn">Installer</button>
+  <button id="installClose" aria-label="Fermer">✕</button>
+</div>
 
 <!-- Start / End overlay -->
 <div class="overlay" id="overlay">
@@ -690,6 +707,7 @@ const DICT_B64 = "H4sIAAAAAAACA2x923asOM/tfb8lK3HX0v8VRdrgjM56+j2wNA+u3heJpw6WZc
   function updateAccountUI(){
     const b = el("accountBtn"); if (!b) return;
     b.textContent = NET.authenticated ? ("✓ " + (NET.username || "Compte")) : "Se connecter";
+    document.body.classList.toggle("authed", !!NET.authenticated);
   }
   async function refreshIdentity(){
     try { const j = (await apiPost("/api/join", {})).json; NET.id = j.id; NET.username = j.username; NET.authenticated = !!j.authenticated; } catch {}
@@ -808,6 +826,41 @@ const DICT_B64 = "H4sIAAAAAAACA2x923asOM/tfb8lK3HX0v8VRdrgjM56+j2wNA+u3heJpw6WZc
     submit(); // relacher valide le mot tracé (silencieux si < 3 lettres)
   });
   el("lobbyBtn").onclick = goToLobby;
+
+  // ---------- Installation (PWA) : proposer l'install seulement en navigateur mobile/tablette ----------
+  let deferredPrompt = null;
+  const isStandalone = () => matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
+  const isMobile = () => /Android|iPhone|iPad|iPod|Mobile|Tablet|Silk/i.test(navigator.userAgent)
+    || (matchMedia("(pointer: coarse)").matches && innerWidth < 1024);
+  const isIOS = () => /iPhone|iPad|iPod/i.test(navigator.userAgent)
+    || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  function showInstallBar(){
+    const bar = el("installBar"); if (!bar) return;
+    if (typeof matchMedia !== "function") return;              // pas un vrai navigateur -> rien
+    if (isStandalone() || !isMobile()) return;                 // déjà installé, ou ordi -> rien
+    try { if (localStorage.getItem("cam_install_no") === "1") return; } catch {}
+    if (isIOS()){
+      el("installTxt").textContent = "Ajoute le jeu : Partager puis « Sur l'écran d'accueil »";
+      el("installBtn").hidden = true;                          // iOS : pas d'install auto, juste l'astuce
+    } else if (deferredPrompt){
+      el("installTxt").textContent = "Installe l'app sur ton écran d'accueil";
+      el("installBtn").hidden = false;
+    } else {
+      return;                                                  // Android : on attend beforeinstallprompt
+    }
+    bar.hidden = false;
+  }
+  window.addEventListener("beforeinstallprompt", (e) => { e.preventDefault(); deferredPrompt = e; showInstallBar(); });
+  window.addEventListener("appinstalled", () => { el("installBar").hidden = true; deferredPrompt = null; });
+  el("installBtn").onclick = async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    await deferredPrompt.userChoice.catch(() => {});
+    deferredPrompt = null; el("installBar").hidden = true;
+  };
+  el("installClose").onclick = () => { el("installBar").hidden = true; try { localStorage.setItem("cam_install_no", "1"); } catch {} };
+  showInstallBar();
+
   window.addEventListener("resize", drawPath);
 
   // ---------- Démarrage ----------
