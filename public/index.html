@@ -217,7 +217,7 @@ const DICT_B64 = "H4sIAAAAAAACA2x923asOM/tfb8lK3HX0v8VRdrgjM56+j2wNA+u3heJpw6WZc
     for (let r=0;r<ROWS;r++){ const row=[]; for(let c=0;c<COLS;c++){ const d=dice[k++]; row.push(d[(rand()*d.length)|0]); } g.push(row); }
     return g;
   }
-  const scoreFor = (n) => n<3?0 : n===3?1 : n===4?2 : n===5?4 : n===6?6 : n===7?9 : n===8?12 : 16;
+  const scoreFor = (n) => n<3?0 : n===3?1 : n===4?3 : n===5?7 : n===6?13 : n===7?21 : n===8?31 : 43;
 
   // ---------- Solveur : tous les mots du dico traçables sur la grille ----------
   const DIRS8 = [[-1,-1],[-1,0],[-1,1],[0,-1],[0,1],[1,-1],[1,0],[1,1]];
