@@ -31,7 +31,7 @@
   --ui:"Space Grotesk", system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
 }
 *{box-sizing:border-box; -webkit-tap-highlight-color:transparent}
-html,body{margin:0; height:100%; overflow-x:hidden}
+html,body{margin:0; height:100%}
 body{
   font-family:var(--ui); color:var(--text);
   background:radial-gradient(120% 80% at 50% -10%, #fbf7ee 0%, var(--bg) 55%, #ece3d1 100%);
@@ -829,11 +829,17 @@ const DICT_B64 = "H4sIAAAAAAACA2x923asOM/tfb8lK3HX0v8VRdrgjM56+j2wNA+u3heJpw6WZc
 
   // ---------- Installation (PWA) : proposer l'install seulement en navigateur mobile/tablette ----------
   let deferredPrompt = null;
-  const isStandalone = () => matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
-  const isMobile = () => /Android|iPhone|iPad|iPod|Mobile|Tablet|Silk/i.test(navigator.userAgent)
-    || (matchMedia("(pointer: coarse)").matches && innerWidth < 1024);
-  const isIOS = () => /iPhone|iPad|iPod/i.test(navigator.userAgent)
+  const isStandalone = () =>
+    matchMedia("(display-mode: standalone)").matches ||
+    matchMedia("(display-mode: fullscreen)").matches ||
+    matchMedia("(display-mode: minimal-ui)").matches ||
+    navigator.standalone === true ||
+    document.referrer.startsWith("android-app://");
+  const isIOS = () => /iPhone|iPad|iPod/i.test(navigator.userAgent || "")
     || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  const isMobile = () => isIOS()
+    || navigator.userAgentData?.mobile === true
+    || /Android|Mobile|Tablet|Silk|Kindle|Opera Mini|BlackBerry|IEMobile|webOS/i.test(navigator.userAgent || "");
   function showInstallBar(){
     const bar = el("installBar"); if (!bar) return;
     if (typeof matchMedia !== "function") return;              // pas un vrai navigateur -> rien
@@ -851,7 +857,7 @@ const DICT_B64 = "H4sIAAAAAAACA2x923asOM/tfb8lK3HX0v8VRdrgjM56+j2wNA+u3heJpw6WZc
     bar.hidden = false;
   }
   window.addEventListener("beforeinstallprompt", (e) => { e.preventDefault(); deferredPrompt = e; showInstallBar(); });
-  window.addEventListener("appinstalled", () => { el("installBar").hidden = true; deferredPrompt = null; });
+  window.addEventListener("appinstalled", () => { el("installBar").hidden = true; deferredPrompt = null; try { localStorage.setItem("cam_install_no", "1"); } catch {} });
   el("installBtn").onclick = async () => {
     if (!deferredPrompt) return;
     deferredPrompt.prompt();
