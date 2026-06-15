@@ -106,7 +106,10 @@ async function serveStatic(res, pathname) {
   if (!filePath.startsWith(PUBLIC_DIR)) { res.writeHead(403); return res.end("Forbidden"); }
   try {
     const data = await readFile(filePath);
-    res.writeHead(200, { "content-type": MIME[path.extname(filePath)] || "application/octet-stream", ...CORS });
+    const ext = path.extname(filePath);
+    const noCache = ext === ".html" || ext === ".webmanifest" || filePath.endsWith("sw.js");
+    const cacheControl = noCache ? "no-cache" : (ext === ".png" || ext === ".ico" ? "public, max-age=86400" : "no-cache");
+    res.writeHead(200, { "content-type": MIME[ext] || "application/octet-stream", "cache-control": cacheControl, ...CORS });
     res.end(data);
   } catch {
     res.writeHead(404, { "content-type": "text/plain; charset=utf-8" });

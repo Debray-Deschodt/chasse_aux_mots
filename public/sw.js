@@ -4,7 +4,7 @@
 //    repli sur le cache uniquement si hors-ligne.
 //  - Fichiers statiques (icônes, manifeste) : cache-first, complété par le réseau.
 //  - /api/* : jamais mis en cache (état, scores, auth passent toujours par le réseau).
-const CACHE = "cam-v1";
+const CACHE = "cam-v2";
 const SHELL = [
   "/", "/manifest.webmanifest",
   "/icon-192.png", "/icon-512.png", "/icon-maskable-512.png", "/apple-touch-icon.png"
@@ -34,7 +34,7 @@ self.addEventListener("fetch", (e) => {
   // Page : on tente le réseau d'abord, et on garde une copie pour le hors-ligne
   if (req.mode === "navigate") {
     e.respondWith(
-      fetch(req)
+      fetch(req, { cache: "no-store" })
         .then((res) => { const copy = res.clone(); caches.open(CACHE).then((c) => c.put("/", copy)); return res; })
         .catch(() => caches.match("/").then((r) => r || caches.match(req)))
     );
