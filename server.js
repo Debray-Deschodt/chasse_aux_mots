@@ -49,21 +49,25 @@ function currentRound(now = Date.now()) {
   };
 }
 
-function leaderboard(round) {
+function leaderboard(round, reveal = false) {
   const m = scoresByRound.get(round);
   if (!m) return [];
   return [...m.values()]
     .sort((a, b) => b.score - a.score)
-    .map((e) => ({ username: e.username, score: e.score }));
+    .map((e) => reveal
+      ? { username: e.username, score: e.score, words: e.words || [] }
+      : { username: e.username, score: e.score });
 }
 
-function recordScore(id, round, score) {
+function recordScore(id, round, score, words) {
   const p = players.get(id);
   if (!p) return false;
   if (!scoresByRound.has(round)) scoresByRound.set(round, new Map());
   const m = scoresByRound.get(round);
   const prev = m.get(id);
-  if (!prev || score > prev.score) m.set(id, { username: p.username, score }); // on garde le meilleur
+  if (!prev || score > prev.score) {
+    m.set(id, { username: p.username, score, words: words && words.length ? words : (prev ? prev.words : []) });
+  }
   if (scoresByRound.size > KEEP_ROUNDS) {
     const cutoff = round - KEEP_ROUNDS;
     for (const r of scoresByRound.keys()) if (r < cutoff) scoresByRound.delete(r);
@@ -129,7 +133,7 @@ const server = http.createServer(async (req, res) => {
     // État courant : seed de la manche + phase + temps restant + classement
     if (req.method === "GET" && pathname === "/api/state") {
       const st = currentRound();
-      return send(res, 200, { ...st, leaderboard: leaderboard(st.round) });
+      return send(res, 200, { ...st, leaderboard: leaderboard(st.round, st.phase === "break") });
     }
 
     // Rejoindre : si connecté -> identité du compte ; sinon -> visiteur
@@ -148,22 +152,28 @@ const server = http.createServer(async (req, res) => {
       return send(res, 200, { id, username, authenticated, ...currentRound() });
     }
 
-    // Envoyer son score pour la manche courante
+    // Envoyer son score + ses mots pour la manche courante
     if (req.method === "POST" && pathname === "/api/score") {
       const body = await readBody(req);
       const id = String(body.id || "");
       const score = Math.max(0, Math.floor(Number(body.score) || 0));
+      const words = (Array.isArray(body.words) ? body.words : [])
+        .slice(0, 400)
+        .map((w) => String(w).toLowerCase().replace(/[^a-zà-ÿ]/g, "").slice(0, 24))
+        .filter(Boolean);
       const now = currentRound();
       const round = Number.isInteger(body.round) ? body.round : now.round;
       if (round !== now.round) return send(res, 409, { error: "round_closed", current: now.round });
-      if (!recordScore(id, round, score)) return send(res, 401, { error: "unknown_player" });
+      if (!recordScore(id, round, score, words)) return send(res, 401, { error: "unknown_player" });
       return send(res, 200, { ok: true, round, leaderboard: leaderboard(round) });
     }
 
     // Classement d'une manche précise (ou la courante par défaut)
     if (req.method === "GET" && pathname === "/api/leaderboard") {
-      const round = searchParams.has("round") ? Number(searchParams.get("round")) : currentRound().round;
-      return send(res, 200, { round, leaderboard: leaderboard(round) });
+      const cur = currentRound();
+      const round = searchParams.has("round") ? Number(searchParams.get("round")) : cur.round;
+      const reveal = round < cur.round || (round === cur.round && cur.phase === "break");
+      return send(res, 200, { round, leaderboard: leaderboard(round, reveal) });
     }
 
     // Tout autre GET hors /api : on sert le site statique

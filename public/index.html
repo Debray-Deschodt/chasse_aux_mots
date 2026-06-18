@@ -150,10 +150,14 @@ body:not(.online) #accountBtn{display:none}
 .word.got i{color:#fff; opacity:.85}
 .lb{display:flex; flex-direction:column; gap:6px; margin:10px 0 12px; text-align:left}
 .lbrow{display:flex; justify-content:space-between; align-items:center; gap:10px; font-size:13px; font-weight:600; text-transform:uppercase; letter-spacing:.02em;
-  padding:9px 12px; border-radius:9px; background:#fff; border:1px solid var(--line); color:var(--ink)}
+  padding:9px 12px; border-radius:9px; background:#fff; border:1px solid var(--line); color:var(--ink); cursor:pointer; transition:background .12s, border-color .12s}
+.lbrow:hover{border-color:var(--magenta)}
 .lbrow b{font-family:var(--display); font-weight:400; color:var(--magenta); font-size:16px}
 .lbrow.me{border-color:var(--magenta); background:#fff0f5}
 .lbrow.me span{color:var(--magenta)}
+.lbrow.sel{background:var(--magenta); border-color:var(--magenta)}
+.lbrow.sel span,.lbrow.sel b{color:#fff}
+.lbhint{font-size:11px; color:var(--muted); text-align:center; margin:-6px 0 10px; text-transform:none; letter-spacing:0}
 .lbempty{color:var(--muted); font-size:13px; padding:8px; text-align:center}
 .brk{font-family:var(--display); font-weight:400; color:var(--magenta); font-size:20px; margin-top:8px; text-transform:uppercase}
 
@@ -666,41 +670,74 @@ const DICT_B64 = "H4sIAAAAAAACA2x923asOM/tfb8lK3HX0v8VRdrgjM56+j2wNA+u3heJpw6WZc
     const now = Date.now();
     if (!force){ if (state.score === NET.lastSent) return; if (now - NET.sentAt < 700) return; }
     NET.lastSent = state.score; NET.sentAt = now;
-    apiPost("/api/score", { id: NET.id, score: state.score, round: NET.state.round })
+    apiPost("/api/score", { id: NET.id, score: state.score, round: NET.state.round, words: [...state.found.keys()] })
       .then(r => { if (r.json && r.json.leaderboard){ NET.leaderboard = r.json.leaderboard; if (NET.state.phase === "break") updateLeaderboardDom(); } })
       .catch(() => {});
   }
 
+  let breakAll = [];   // mots de la grille (solution) du bilan en cours
+  let breakSel = -1;   // -1 = moi ; sinon index dans le classement
+
   function lbRows(){
     if (!NET.leaderboard.length) return `<div class="lbempty">Pas encore de score</div>`;
-    return NET.leaderboard.slice(0,12).map((e,i) =>
-      `<div class="lbrow${e.username===NET.username ? " me":""}"><span>${i+1}. ${e.username}</span><b>${e.score}</b></div>`
+    return NET.leaderboard.slice(0,12).map((e,i) => {
+      const self = e.username === NET.username;
+      const sel = (breakSel < 0 && self) || breakSel === i;
+      return `<div class="lbrow${self ? " me":""}${sel ? " sel":""}" data-i="${i}"><span>${i+1}. ${e.username}</span><b>${e.score}</b></div>`;
+    }).join("");
+  }
+  function updateLeaderboardDom(){ const lb = el("lb"); if (lb){ lb.innerHTML = lbRows(); renderWordlist(); } }
+
+  function wordSetFor(sel){
+    if (sel < 0) return new Set(state.found.keys());                 // moi (source locale, fiable)
+    const e = NET.leaderboard[sel];
+    if (e && e.username === NET.username) return new Set(state.found.keys());
+    return new Set((e && e.words) ? e.words : []);
+  }
+  function nameFor(sel){
+    if (sel < 0) return "toi";
+    const e = NET.leaderboard[sel];
+    return (e && e.username === NET.username) ? "toi" : (e ? e.username : "?");
+  }
+  function renderWordlist(){
+    const head = el("solhead"), list = el("wordlist");
+    if (!head || !list || !breakAll.length) return;
+    const set = wordSetFor(breakSel);
+    const max = breakAll.reduce((s,w) => s + scoreFor(w.length), 0);
+    const got = breakAll.filter(w => set.has(w)).length;
+    head.innerHTML = `Mots de <b>${nameFor(breakSel)}</b> · <b>${got}/${breakAll.length}</b> trouvés · max ${max}`;
+    list.innerHTML = breakAll.map(w =>
+      `<span class="word ${set.has(w) ? "got" : ""}">${w.toUpperCase()}<i>${scoreFor(w.length)}</i></span>`
     ).join("");
   }
-  function updateLeaderboardDom(){ const lb = el("lb"); if (lb) lb.innerHTML = lbRows(); }
 
   function showBreak(st){
     el("overlay").hidden = false;
+    breakSel = -1; breakAll = [];
     el("card").innerHTML = `
       <div class="kicker">Manche #${st.round} · terminée</div>
       <h2>Classement</h2>
       <div class="lb" id="lb">${lbRows()}</div>
+      <div class="lbhint">Touche un joueur pour voir ses mots</div>
       <div class="recap"><div><b>${state.score}</b>ton score</div><div><b>${state.found.size}</b>mots</div></div>
       <div class="solhead" id="solhead">Recherche des mots…</div>
       <div class="wordlist" id="wordlist"></div>
       <div class="brk" id="nextIn">Nouvelle manche…</div>`;
+    el("lb").onclick = (ev) => {
+      const row = ev.target.closest(".lbrow"); if (!row) return;
+      const i = Number(row.dataset.i);
+      breakSel = (NET.leaderboard[i] && NET.leaderboard[i].username === NET.username) ? -1 : i;
+      el("lb").innerHTML = lbRows();
+      renderWordlist();
+    };
     fillSolution(st.seed);
   }
   function fillSolution(seed){
     setTimeout(() => {
       if (!el("solhead") || !NET.state || NET.state.phase !== "break") return;
       const grid = (state.seed === seed && state.grid.length) ? state.grid : gridFromSeed(seed);
-      const all = state.solution.length ? state.solution : solveGrid(grid);
-      const max = all.reduce((s,w) => s + scoreFor(w.length), 0);
-      el("solhead").innerHTML = `Mots de la grille · <b>${state.found.size}/${all.length}</b> trouvés · max ${max}`;
-      el("wordlist").innerHTML = all.map(w =>
-        `<span class="word ${state.found.has(w) ? "got" : ""}">${w.toUpperCase()}<i>${scoreFor(w.length)}</i></span>`
-      ).join("");
+      breakAll = state.solution.length ? state.solution : solveGrid(grid);
+      renderWordlist();
     }, 20);
   }
 
