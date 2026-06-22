@@ -2,4 +2,6 @@ node_modules/
 .env
 auth.db
 auth.db-*
+scores.db
+scores.db-*
 *.log

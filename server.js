@@ -6,6 +6,7 @@ import path from "node:path";
 import { auth } from "./auth.js";
 import { toNodeHandler, fromNodeHeaders } from "better-auth/node";
 import { getMigrations } from "better-auth/db/migration";
+import { createClient } from "@libsql/client";
 
 const authHandler = toNodeHandler(auth);
 
@@ -26,7 +27,90 @@ const MAX_NAME = 24;
 
 // ---------- État mémoire ----------
 const players = new Map();        // id -> { username }
-const scoresByRound = new Map();  // round -> Map(id -> { username, score })
+const scoresByRound = new Map();  // round -> Map(id -> { id, username, score, words, total })
+
+// ---------- Scores persistants (SQLite/libsql) ----------
+const scoresDb = createClient({ url: process.env.SCORES_DB || "file:./scores.db" });
+const flushedRounds = new Set();
+
+async function initScoresDb() {
+  await scoresDb.execute(`CREATE TABLE IF NOT EXISTS results(
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id TEXT, username TEXT,
+    score INTEGER, found INTEGER, total INTEGER,
+    ts INTEGER)`);
+  await scoresDb.execute(`CREATE INDEX IF NOT EXISTS idx_results_ts ON results(ts)`);
+}
+
+// Écrit en base les résultats des manches terminées (manche courante incluse dès la pause)
+async function flushFinishedRounds() {
+  const cur = currentRound();
+  for (const [round, m] of scoresByRound) {
+    const finished = round < cur.round || (round === cur.round && cur.phase === "break");
+    if (!finished || flushedRounds.has(round)) continue;
+    flushedRounds.add(round);
+    const ts = Date.now();
+    for (const e of m.values()) {
+      if (e.score <= 0) continue;            // AFK : pas persisté
+      const found = e.words ? e.words.length : 0;
+      try {
+        await scoresDb.execute({
+          sql: "INSERT INTO results(user_id, username, score, found, total, ts) VALUES(?,?,?,?,?,?)",
+          args: [e.id || "", e.username, e.score, found, e.total || 0, ts],
+        });
+      } catch (err) { /* on n'interrompt pas le jeu pour un souci d'écriture */ }
+    }
+  }
+  if (flushedRounds.size > 200) {
+    for (const r of flushedRounds) { if (r < cur.round - KEEP_ROUNDS) flushedRounds.delete(r); }
+  }
+}
+
+// Top 10 par fenêtre : meilleur par joueur (le bare-column suit le MAX, donc le bon pseudo)
+async function topScores(sinceMs) {
+  const r = await scoresDb.execute({
+    sql: `SELECT username, MAX(score) AS best FROM results WHERE ts >= ? AND score > 0 GROUP BY user_id ORDER BY best DESC LIMIT 10`,
+    args: [sinceMs],
+  });
+  return r.rows.map((x) => ({ username: x.username, score: Number(x.best) }));
+}
+async function topProportion(sinceMs) {
+  const r = await scoresDb.execute({
+    sql: `SELECT username, found, total, MAX(CAST(found AS REAL)/total) AS prop
+          FROM results WHERE ts >= ? AND total > 0 AND found > 0 GROUP BY user_id ORDER BY prop DESC LIMIT 10`,
+    args: [sinceMs],
+  });
+  return r.rows.map((x) => ({ username: x.username, prop: Number(x.prop), found: Number(x.found), total: Number(x.total) }));
+}
+
+// Fenêtres : depuis minuit (jour) et depuis lundi (semaine), en heure de Paris ; all-time
+const TZ = "Europe/Paris";
+function tzOffsetMs(ts) {
+  const d = new Date(ts);
+  const inTz = new Date(d.toLocaleString("en-US", { timeZone: TZ }));
+  const inUtc = new Date(d.toLocaleString("en-US", { timeZone: "UTC" }));
+  return inTz.getTime() - inUtc.getTime();
+}
+function parisYMD(ts) {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: TZ, year: "numeric", month: "2-digit", day: "2-digit" })
+    .format(ts).split("-").map(Number); // [Y, M, D]
+}
+function startOfDayParis(now = Date.now()) {
+  const [Y, M, D] = parisYMD(now);
+  const guess = Date.UTC(Y, M - 1, D, 0, 0, 0);
+  return guess - tzOffsetMs(guess);               // 00:00 Paris -> epoch UTC
+}
+function startOfWeekParis(now = Date.now()) {
+  const [Y, M, D] = parisYMD(now);
+  const dow = new Date(Date.UTC(Y, M - 1, D)).getUTCDay(); // 0=dim … 6=sam
+  const sinceMonday = (dow + 6) % 7;                        // lundi=0
+  const guess = Date.UTC(Y, M - 1, D - sinceMonday, 0, 0, 0);
+  return guess - tzOffsetMs(guess);               // lundi 00:00 Paris -> epoch UTC
+}
+function windows() {
+  const now = Date.now();
+  return { day: startOfDayParis(now), week: startOfWeekParis(now), all: 0 };
+}
 
 // ---------- Manche dérivée de l'horloge ----------
 // Tout vient du temps : la rotation "tourne toute seule", et n'importe qui
@@ -53,20 +137,25 @@ function leaderboard(round, reveal = false) {
   const m = scoresByRound.get(round);
   if (!m) return [];
   return [...m.values()]
+    .filter((e) => e.score > 0)              // joueurs AFK (0 point) masqués
     .sort((a, b) => b.score - a.score)
     .map((e) => reveal
       ? { username: e.username, score: e.score, words: e.words || [] }
       : { username: e.username, score: e.score });
 }
 
-function recordScore(id, round, score, words) {
+function recordScore(id, round, score, words, total) {
   const p = players.get(id);
   if (!p) return false;
   if (!scoresByRound.has(round)) scoresByRound.set(round, new Map());
   const m = scoresByRound.get(round);
   const prev = m.get(id);
+  const keptTotal = Math.max(total || 0, prev ? prev.total || 0 : 0);
   if (!prev || score > prev.score) {
-    m.set(id, { username: p.username, score, words: words && words.length ? words : (prev ? prev.words : []) });
+    m.set(id, { id, username: p.username, score, words: words && words.length ? words : (prev ? prev.words : []), total: keptTotal });
+  } else {
+    prev.total = keptTotal;          // le total de la grille peut arriver après le pic de score
+    prev.username = p.username;
   }
   if (scoresByRound.size > KEEP_ROUNDS) {
     const cutoff = round - KEEP_ROUNDS;
@@ -161,11 +250,23 @@ const server = http.createServer(async (req, res) => {
         .slice(0, 400)
         .map((w) => String(w).toLowerCase().replace(/[^a-zà-ÿ]/g, "").slice(0, 24))
         .filter(Boolean);
+      const total = Math.max(0, Math.floor(Number(body.total) || 0));
       const now = currentRound();
       const round = Number.isInteger(body.round) ? body.round : now.round;
       if (round !== now.round) return send(res, 409, { error: "round_closed", current: now.round });
-      if (!recordScore(id, round, score, words)) return send(res, 401, { error: "unknown_player" });
+      if (!recordScore(id, round, score, words, total)) return send(res, 401, { error: "unknown_player" });
       return send(res, 200, { ok: true, round, leaderboard: leaderboard(round) });
+    }
+
+    // Palmarès persistant : meilleurs scores + meilleure proportion (jour / semaine / all-time)
+    if (req.method === "GET" && pathname === "/api/records") {
+      await flushFinishedRounds().catch(() => {});   // inclut la manche qui vient de finir
+      const w = windows();
+      const [sd, sw, sa, pd, pw, pa] = await Promise.all([
+        topScores(w.day), topScores(w.week), topScores(w.all),
+        topProportion(w.day), topProportion(w.week), topProportion(w.all),
+      ]);
+      return send(res, 200, { scores: { day: sd, week: sw, all: sa }, props: { day: pd, week: pw, all: pa } });
     }
 
     // Classement d'une manche précise (ou la courante par défaut)
@@ -192,6 +293,14 @@ try {
   await mig.runMigrations();
 } catch (e) {
   console.error("⚠ Migrations auth :", e.message);
+}
+
+// Base de scores persistante + flush périodique des manches terminées
+try {
+  await initScoresDb();
+  setInterval(() => { flushFinishedRounds().catch(() => {}); }, Number(process.env.FLUSH_MS || 10_000));
+} catch (e) {
+  console.error("⚠ Base de scores :", e.message);
 }
 
 server.listen(PORT, () => {
