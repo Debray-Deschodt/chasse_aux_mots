@@ -138,6 +138,9 @@ body:not(.online) #recordsBtn{display:none}
 .overlay[hidden]{display:none}
 .card{width:100%; max-width:380px; max-height:92vh; overflow:auto; -webkit-overflow-scrolling:touch; overscroll-behavior:contain; background:var(--panel); border:1.5px solid var(--line); border-radius:18px;
   padding:26px 22px; box-shadow:0 24px 50px -22px rgba(25,22,19,.5); text-align:center}
+.card.breakcard{display:flex; flex-direction:column; overflow:hidden}
+.card.breakcard .kicker, .card.breakcard .btn{align-self:center}
+.card.breakcard .wordlist{flex:1 1 auto; min-height:90px; overflow:auto; -webkit-overflow-scrolling:touch; overscroll-behavior:contain; margin-bottom:12px}
 .card .kicker{display:inline-block; font-size:11px; letter-spacing:.12em; text-transform:uppercase; font-weight:700; color:#fff; background:var(--magenta); padding:3px 8px; transform:rotate(-2deg)}
 .card h2{font-family:var(--display); font-weight:400; font-size:32px; margin:10px 0 4px; text-transform:uppercase; color:var(--ink)}
 .card p{color:var(--muted); margin:0 0 18px; font-size:14px; line-height:1.5}
@@ -526,6 +529,7 @@ const DICT_B64 = "H4sIAAAAAAACA2x923asOM/tfb8lK3HX0v8VRdrgjM56+j2wNA+u3heJpw6WZc
   // ---------- Overlays ----------
   function showCard(kind){
     const card = el("card"); el("overlay").hidden = false;
+    card.classList.remove("breakcard");
     if (kind === "loading"){
       card.innerHTML = `<div class="kicker">Préparation</div><h2>Chasse au mot</h2>
         <p>On charge le dictionnaire français…</p><div class="loading" id="loadmsg">Décompression…</div>`;
@@ -741,16 +745,19 @@ const DICT_B64 = "H4sIAAAAAAACA2x923asOM/tfb8lK3HX0v8VRdrgjM56+j2wNA+u3heJpw6WZc
 
   function showBreak(st){
     el("overlay").hidden = false;
+    el("card").classList.add("breakcard");
     breakSel = -1; breakAll = [];
     el("card").innerHTML = `
       <div class="kicker">Manche #${st.round} · terminée</div>
       <h2>Classement</h2>
       <div class="lb" id="lb">${lbRows()}</div>
       <div class="lbhint">Touche un joueur pour voir ses mots</div>
+      <button class="btn ghost" id="breakRecordsBtn" style="margin:0 0 12px">🏆 Palmarès</button>
       <div class="recap" id="recap"><div><b>${state.score}</b>score</div><div><b>${state.found.size}</b>mots</div></div>
       <div class="solhead" id="solhead">Mots de la grille</div>
       <div class="wordlist" id="wordlist"></div>
       <div class="brk" id="nextIn">Nouvelle manche…</div>`;
+    el("breakRecordsBtn").onclick = openRecords;
     el("lb").onclick = (ev) => {
       const row = ev.target.closest(".lbrow"); if (!row) return;
       const i = Number(row.dataset.i);
