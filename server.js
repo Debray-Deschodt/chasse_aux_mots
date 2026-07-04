@@ -305,5 +305,5 @@ try {
 
 server.listen(PORT, () => {
   const g = process.env.GOOGLE_CLIENT_ID ? "email + Google" : "email (Google non configuré)";
-  console.log(`Chasse au mot — serveur sur :${PORT} (manche ${PLAY_MS / 1000}s + pause ${BREAK_MS / 1000}s) — auth: ${g}`);
+  console.log(`Chasse aux mots — serveur sur :${PORT} (manche ${PLAY_MS / 1000}s + pause ${BREAK_MS / 1000}s) — auth: ${g}`);
 });
