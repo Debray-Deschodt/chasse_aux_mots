@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-<title>Chasse au mot</title>
+<title>Chasse aux mots</title>
 <meta name="description" content="Trouve un maximum de mots dans la grille, en manches synchronisées.">
 <link rel="manifest" href="/manifest.webmanifest">
 <meta name="theme-color" content="#f4efe4">
@@ -12,7 +12,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Chasse au mot">
+<meta name="apple-mobile-web-app-title" content="Chasse aux mots">
 <script>
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => navigator.serviceWorker.register("/sw.js").catch(() => {}));
@@ -54,7 +54,7 @@ header{display:flex; align-items:flex-end; justify-content:space-between; gap:12
 .timebar{height:6px; border-radius:99px; background:#e7dfcd; overflow:hidden}
 .timebar > i{display:block; height:100%; width:100%; background:linear-gradient(90deg,var(--magenta),#ff6aa0); transform-origin:left; transition:transform 1s linear}
 
-.seed{display:flex; align-items:center; flex-wrap:wrap; gap:10px; font-size:13px; color:var(--muted); font-weight:600; text-transform:uppercase; letter-spacing:.04em}
+.seed{display:flex; align-items:center; justify-content:flex-end; flex-wrap:wrap; gap:10px; font-size:13px; color:var(--muted); font-weight:600; text-transform:uppercase; letter-spacing:.04em}
 .seed b{color:var(--magenta); font-weight:700; font-family:var(--ui)}
 .user{margin-left:auto; font-weight:700; color:var(--magenta); font-size:12.5px; text-transform:uppercase; letter-spacing:.03em;
   max-width:42vw; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
@@ -69,6 +69,7 @@ body:not(.online) #recordsBtn{display:none}
 .rtabs{display:flex; gap:6px; margin:6px 0 14px}
 .rtab{flex:1; padding:7px 4px; border:1px solid var(--line); border-radius:8px; background:#fff; font:inherit; font-weight:700; font-size:11.5px; text-transform:uppercase; letter-spacing:.03em; cursor:pointer; color:var(--ink)}
 .rtab.on{background:var(--magenta); color:#fff; border-color:var(--magenta)}
+.rlegend{font-size:11px; color:var(--muted); text-align:center; margin:-6px 0 12px}
 .rsec{text-align:left; font-size:11.5px; text-transform:uppercase; letter-spacing:.05em; color:var(--muted); font-weight:700; margin:14px 0 7px}
 .lb.ro .lbrow{cursor:default}
 .lb.ro .lbrow:hover{border-color:var(--line)}
@@ -140,6 +141,7 @@ body:not(.online) #recordsBtn{display:none}
   padding:26px 22px; box-shadow:0 24px 50px -22px rgba(25,22,19,.5); text-align:center}
 .card.breakcard{display:flex; flex-direction:column; overflow:hidden}
 .card.breakcard .kicker, .card.breakcard .btn{align-self:center}
+.card.breakcard .lb{flex:0 1 auto; max-height:30vh; overflow:auto; -webkit-overflow-scrolling:touch; overscroll-behavior:contain}
 .card.breakcard .wordlist{flex:1 1 auto; min-height:90px; overflow:auto; -webkit-overflow-scrolling:touch; overscroll-behavior:contain; margin-bottom:12px}
 .card .kicker{display:inline-block; font-size:11px; letter-spacing:.12em; text-transform:uppercase; font-weight:700; color:#fff; background:var(--magenta); padding:3px 8px; transform:rotate(-2deg)}
 .card h2{font-family:var(--display); font-weight:400; font-size:32px; margin:10px 0 4px; text-transform:uppercase; color:var(--ink)}
@@ -182,14 +184,13 @@ body:not(.online) #recordsBtn{display:none}
   <header>
     <div class="brand">
       <div class="kicker">Le défi</div>
-      <h1>Chasse au mot</h1>
+      <h1>Chasse aux mots</h1>
     </div>
     <div class="chrono" id="chrono">2:00</div>
   </header>
   <div class="timebar"><i id="timebar"></i></div>
 
   <div class="seed">
-    <span>Graine&nbsp;<b id="seedLabel">—</b></span>
     <span class="user" id="user"></span>
     <button class="icobtn" id="recordsBtn" title="Palmarès">🏆</button>
     <button class="icobtn" id="accountBtn">Se connecter</button>
@@ -347,7 +348,6 @@ const DICT_B64 = "H4sIAAAAAAACA2x923asOM/tfb8lK3HX0v8VRdrgjM56+j2wNA+u3heJpw6WZc
   const gridEl = el("grid");
   function buildGrid(){
     state.grid = gridFromSeed(state.seed);
-    el("seedLabel").textContent = state.seed;
     gridEl.style.gridTemplateColumns = `repeat(${COLS},1fr)`;
     gridEl.innerHTML = "";
     for (let r=0;r<ROWS;r++) for (let c=0;c<COLS;c++){
@@ -531,7 +531,7 @@ const DICT_B64 = "H4sIAAAAAAACA2x923asOM/tfb8lK3HX0v8VRdrgjM56+j2wNA+u3heJpw6WZc
     const card = el("card"); el("overlay").hidden = false;
     card.classList.remove("breakcard");
     if (kind === "loading"){
-      card.innerHTML = `<div class="kicker">Préparation</div><h2>Chasse au mot</h2>
+      card.innerHTML = `<div class="kicker">Préparation</div><h2>Chasse aux mots</h2>
         <p>On charge le dictionnaire français…</p><div class="loading" id="loadmsg">Décompression…</div>`;
       return;
     }
@@ -606,7 +606,7 @@ const DICT_B64 = "H4sIAAAAAAACA2x923asOM/tfb8lK3HX0v8VRdrgjM56+j2wNA+u3heJpw6WZc
     const u = new URL(location.href); u.searchParams.set("seed", state.seed);
     const url = u.toString();
     try {
-      if (navigator.share){ await navigator.share({ title:"Chasse au mot", text:`Graine ${state.seed}`, url }); }
+      if (navigator.share){ await navigator.share({ title:"Chasse aux mots", text:`Graine ${state.seed}`, url }); }
       else { await navigator.clipboard.writeText(url); toast("ok","Lien copié"); }
     } catch(e){ try{ await navigator.clipboard.writeText(url); toast("ok","Lien copié"); }catch{} }
   }
@@ -654,7 +654,6 @@ const DICT_B64 = "H4sIAAAAAAACA2x923asOM/tfb8lK3HX0v8VRdrgjM56+j2wNA+u3heJpw6WZc
   }
 
   function reconcile(st){
-    el("seedLabel").textContent = "#" + st.round;
     if (st.phase === "play"){
       if (NET.lastPhase !== "play" || NET.lastSeed !== st.seed){      // (re)démarrage de manche
         ensureGrid(st.seed);
@@ -954,20 +953,27 @@ const DICT_B64 = "H4sIAAAAAAACA2x923asOM/tfb8lK3HX0v8VRdrgjM56+j2wNA+u3heJpw6WZc
     const d = recordsData;
     const tab = (w,label) => `<button class="rtab${recordsWin===w?" on":""}" data-w="${w}">${label}</button>`;
     const me = (u) => u === NET.username ? " me" : "";
-    const scoreRows = (a) => (a && a.length)
-      ? a.map((e,i) => `<div class="lbrow${me(e.username)}"><span>${i+1}. ${e.username}</span><b>${e.score}</b></div>`).join("")
+    // Médaille selon l'onglet : semaine → couronne au 1er ; jour → or au 1er ; puis argent/bronze ; all-time → aucune
+    const medal = (i) => {
+      if (recordsWin === "week") return i===0 ? "👑 " : i===1 ? "🥈 " : i===2 ? "🥉 " : "";
+      if (recordsWin === "day")  return i===0 ? "🥇 " : i===1 ? "🥈 " : i===2 ? "🥉 " : "";
+      return "";
+    };
+    const rows = (a, val, withMedal) => (a && a.length)
+      ? a.map((e,i) => `<div class="lbrow${me(e.username)}"><span><span class="badges">${withMedal ? medal(i) : ""}</span>${i+1}. ${e.username}</span><b>${val(e)}</b></div>`).join("")
       : `<div class="lbempty">Pas encore de score</div>`;
-    const propRows = (a) => (a && a.length)
-      ? a.map((e,i) => `<div class="lbrow${me(e.username)}"><span>${i+1}. ${e.username}</span><b>${Math.round(e.prop*100)}%</b></div>`).join("")
-      : `<div class="lbempty">Pas encore de score</div>`;
+    const legend = recordsWin === "week" ? "Podium de la semaine — 👑 1er · 🥈 2e · 🥉 3e"
+                 : recordsWin === "day"  ? "Podium du jour — 🥇 1er · 🥈 2e · 🥉 3e"
+                 : "Classement de tous les temps";
     el("recordsCard").innerHTML = `
       <div class="kicker">Palmarès</div>
       <h2>Records</h2>
       <div class="rtabs">${tab("day","Jour")}${tab("week","Semaine")}${tab("all","All-time")}</div>
+      <div class="rlegend">${legend}</div>
       <div class="rsec">Meilleurs scores</div>
-      <div class="lb ro">${d ? scoreRows(d.scores[recordsWin]) : '<div class="lbempty">Indisponible</div>'}</div>
+      <div class="lb ro">${d ? rows(d.scores[recordsWin], (e) => e.score, true) : '<div class="lbempty">Indisponible</div>'}</div>
       <div class="rsec">Plus grande proportion de mots trouvés</div>
-      <div class="lb ro">${d ? propRows(d.props[recordsWin]) : '<div class="lbempty">Indisponible</div>'}</div>
+      <div class="lb ro">${d ? rows(d.props[recordsWin], (e) => Math.round(e.prop*100) + "%", false) : '<div class="lbempty">Indisponible</div>'}</div>
       <button class="btn ghost" id="recordsClose">Fermer</button>`;
     el("recordsCard").querySelectorAll(".rtab").forEach((b) => b.onclick = () => { recordsWin = b.dataset.w; renderRecords(); });
     el("recordsClose").onclick = () => { el("recordsModal").hidden = true; };

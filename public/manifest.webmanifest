@@ -1,6 +1,6 @@
 {
-  "name": "Chasse au mot",
-  "short_name": "Chasse au mot",
+  "name": "Chasse aux mots",
+  "short_name": "Chasse aux mots",
   "description": "Trouve un maximum de mots dans la grille, en manches synchronisées avec tes amis.",
   "lang": "fr",
   "start_url": "/",
