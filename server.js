@@ -201,6 +201,7 @@ async function flushFinishedRounds() {
         });
       } catch (err) { /* on n'interrompt pas le jeu pour un souci d'écriture */ }
     }
+    await captureAnimals(m);   // attribue les emojis d'animaux trouvés cette manche
   }
   if (flushedRounds.size > 200) {
     for (const r of flushedRounds) { if (r < cur.round - KEEP_ROUNDS) flushedRounds.delete(r); }
@@ -281,8 +282,8 @@ function leaderboard(round, reveal = false) {
     .filter((e) => e.score > 0)              // joueurs AFK (0 point) masqués
     .sort((a, b) => b.score - a.score)
     .map((e) => reveal
-      ? { username: e.username, score: e.score, words: e.words || [] }
-      : { username: e.username, score: e.score });
+      ? { username: e.username, score: e.score, words: e.words || [], emojis: emojisFor(e.id) }
+      : { username: e.username, score: e.score, emojis: emojisFor(e.id) });
 }
 
 function recordScore(id, round, score, words, total) {
@@ -336,6 +337,60 @@ function visitorName() {
   if (fem) adj = feminize(adj);
   const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
   return cap(adj) + cap(ani) + (100 + ((Math.random() * 900) | 0));
+}
+
+// ---------- Emojis d'animaux capturés au fil des manches ----------
+// Le dernier joueur à trouver le nom d'un animal récupère son emoji ; à égalité de manche,
+// c'est le meilleur score. Le détenteur garde l'emoji tant que personne d'autre ne le trouve.
+const ANIMOJI = {
+  singe:"🐒", cheval:"🐴", "âne":"🫏", chenille:"🐛", poisson:"🐟", ours:"🐻", aigle:"🦅",
+  poussin:"🐤", mouette:"🕊️", "goéland":"🐦", renard:"🦊", perdrix:"🐦", poule:"🐔",
+  crapaud:"🐸", crevette:"🦐", "vipère":"🐍", pieuvre:"🐙", mulot:"🐭", seiche:"🦑",
+  grillon:"🦗", sardine:"🐟", canard:"🦆", caille:"🐦", oie:"🦢", buse:"🦅", loche:"🐟",
+  ver:"🪱", "écureuil":"🐿️", chevreuil:"🦌", mouche:"🪰", antilope:"🦌", autruche:"🦤",
+  buffle:"🐃", toucan:"🦜", blaireau:"🦡", "lièvre":"🐇", "hérisson":"🦔", loir:"🐭",
+  loutre:"🦦", hibou:"🦉", lynx:"🐈", corbeau:"🐦", faucon:"🦅", castor:"🦫", rat:"🐀",
+  mite:"🦋", cormoran:"🐦", caribou:"🦌", belette:"🐭", chouette:"🦉", "lézard":"🦎",
+  moineau:"🐦", "mésange":"🐦", pigeon:"🐦", escargot:"🐌", hareng:"🐟", anguille:"🐟", brochet:"🐟",
+};
+const deacc = (s) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+const NORM_ANIMOJI = {};                 // "ecureuil" -> emoji (les mots trouvés sont sans accents)
+for (const k in ANIMOJI) NORM_ANIMOJI[deacc(k)] = ANIMOJI[k];
+
+const animalHolders = new Map();         // animal (normalisé) -> { id, name }
+async function loadAnimals() {
+  await scoresDb.execute(`CREATE TABLE IF NOT EXISTS animals(name TEXT PRIMARY KEY, holder_id TEXT, holder_name TEXT, ts INTEGER)`);
+  try {
+    const r = await scoresDb.execute("SELECT name, holder_id, holder_name FROM animals");
+    for (const row of r.rows) animalHolders.set(String(row.name), { id: String(row.holder_id || ""), name: String(row.holder_name || "") });
+  } catch {}
+}
+async function setAnimalHolder(animal, id, name) {
+  animalHolders.set(animal, { id, name });
+  try { await scoresDb.execute({ sql: "INSERT OR REPLACE INTO animals(name, holder_id, holder_name, ts) VALUES(?,?,?,?)", args: [animal, id, name, Date.now()] }); } catch {}
+}
+// Emojis (uniques) détenus par un joueur
+function emojisFor(id) {
+  if (!id) return [];
+  const out = [], seen = new Set();
+  for (const [animal, h] of animalHolders) {
+    if (h.id === id) { const e = NORM_ANIMOJI[animal]; if (e && !seen.has(e)) { seen.add(e); out.push(e); } }
+  }
+  return out;
+}
+// Fin de manche : chaque animal trouvé va au meilleur score parmi ceux qui l'ont trouvé
+async function captureAnimals(roundMap) {
+  const players_ = [...roundMap.values()];
+  for (const animal in NORM_ANIMOJI) {
+    let best = null;
+    for (const e of players_) {
+      if (e.words && e.words.includes(animal) && (!best || e.score > best.score)) best = e;
+    }
+    if (best) {
+      const cur = animalHolders.get(animal);
+      if (!cur || cur.id !== (best.id || "")) await setAnimalHolder(animal, best.id || "", best.username);
+    }
+  }
 }
 
 // ---------- Helpers HTTP ----------
@@ -475,6 +530,7 @@ try {
 // Base de scores persistante + flush périodique des manches terminées
 try {
   await initScoresDb();
+  await loadAnimals();
   setInterval(() => { flushFinishedRounds().catch(() => {}); }, Number(process.env.FLUSH_MS || 10_000));
 } catch (e) {
   console.error("⚠ Base de scores :", e.message);

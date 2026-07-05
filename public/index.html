@@ -846,7 +846,8 @@ const DICT_B64 = "H4sIAAAAAAACA2RdaZPjKBL9Pv9SXWbU7FpWDQLHVP/6DZH5DrwR3cXLkyMTCa
     return NET.leaderboard.slice(0,12).map((e,i) => {
       const self = e.username === NET.username;
       const sel = (breakSel < 0 && self) || breakSel === i;
-      return `<div class="lbrow${self ? " me":""}${sel ? " sel":""}" data-i="${i}"><span>${i+1}. ${e.username}${badgesFor(e.username)}</span><b>${e.score}</b></div>`;
+      const emo = (e.emojis && e.emojis.length) ? ` <span class="badges">${e.emojis.join("")}</span>` : "";
+      return `<div class="lbrow${self ? " me":""}${sel ? " sel":""}" data-i="${i}"><span>${i+1}. ${e.username}${badgesFor(e.username)}${emo}</span><b>${e.score}</b></div>`;
     }).join("");
   }
   function updateLeaderboardDom(){ const lb = el("lb"); if (lb){ lb.innerHTML = lbRows(); renderWordlist(); } }
