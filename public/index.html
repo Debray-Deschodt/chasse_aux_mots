@@ -200,7 +200,8 @@ body:not(.online) #recordsBtn{display:none}
   --bg:#14120f; --panel:#211d17; --board:#17130f; --line:#38312a;
   --ink:#f1ebdf; --text:#f1ebdf; --muted:#9c9280;
 }
-[data-theme="dark"] .overlay{background:radial-gradient(120% 80% at 50% -10%, #1d1913 0%, var(--bg) 55%, #0e0c09 100%)}
+[data-theme="dark"] body{background:radial-gradient(120% 80% at 50% -10%, #1d1913 0%, var(--bg) 55%, #0e0c09 100%)}
+[data-theme="dark"] .overlay:not(.breakbg):not(.minimized){background:radial-gradient(120% 80% at 50% -10%, #1d1913 0%, var(--bg) 55%, #0e0c09 100%)}
 [data-theme="dark"] .icobtn,
 [data-theme="dark"] .btn.ghost,
 [data-theme="dark"] .rtab,
