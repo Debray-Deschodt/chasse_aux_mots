@@ -52,15 +52,28 @@ async function initScoresDb() {
 }
 
 // ---------- Définitions (Wiktionnaire, section française, avec cache) ----------
+// Gabarits qui PORTENT le texte de la définition -> on les rend en clair au lieu de les retirer
+const DEFTPL = {
+  "variante de": "Variante de", "variante ortho de": "Variante orthographique de", "variante orthographique de": "Variante orthographique de",
+  "apocope": "Apocope de", "apocope de": "Apocope de", "aphérèse": "Aphérèse de", "aphérèse de": "Aphérèse de",
+  "abréviation": "Abréviation de", "abréviation de": "Abréviation de", "ellipse": "Ellipse de", "ellipse de": "Ellipse de",
+  "diminutif": "Diminutif de", "diminutif de": "Diminutif de", "augmentatif de": "Augmentatif de",
+  "acronyme": "Acronyme de", "sigle": "Sigle de", "siglaison de": "Sigle de", "initialisme": "Initialisme de",
+  "déverbal de": "Déverbal de", "déverbal": "Déverbal de",
+};
 function cleanWiki(s) {
-  let out = s;
-  for (let i = 0; i < 5; i++) out = out.replace(/\{\{[^{}]*\}\}/g, "");   // gabarits (dérécursivés)
+  let out = s.replace(/\{\{([^|{}]+)\|([^|{}]+)(?:\|[^{}]*)?\}\}/g, (m, name, arg) => {
+    const k = name.trim().toLowerCase();
+    return DEFTPL[k] ? `${DEFTPL[k]} ${arg.trim()}.` : m;   // ex. {{apocope|université|fr}} -> "Apocope de université."
+  });
+  for (let i = 0; i < 5; i++) out = out.replace(/\{\{[^{}]*\}\}/g, "");   // gabarits restants (dérécursivés)
   return out
     .replace(/\[\[([^\]|]*)\|([^\]]*)\]\]/g, "$2")   // [[a|b]] -> b
     .replace(/\[\[([^\]]*)\]\]/g, "$1")              // [[a]] -> a
     .replace(/'''?/g, "")                            // gras / italique
     .replace(/<[^>]+>/g, "")                         // balises html
     .replace(/\(\s*\)/g, "")                         // parenthèses vides (gabarits retirés)
+    .replace(/\.{2,}/g, ".")                         // points multiples
     .replace(/\s+([.,;:!?])/g, "$1")                 // espace avant ponctuation
     .replace(/\s+/g, " ").trim()
     .slice(0, 300);
@@ -84,28 +97,37 @@ function lemmaOf(rawLine) {
 // Étiquettes régionales / de registre : ces sens passent après les sens neutres
 const MARGINAL = /\{\{\s*(suisse|belgique|québec|acadie|louisiane|afrique|familier|populaire|argot|argotique|vieilli|désuet|archaïque|vulgaire|rare|régional|dialectal)\b/i;
 // Analyse la SECTION FRANÇAISE : { real: vraies définitions, base: lemme d'une flexion }
-// Ignore les noms propres ; les sous-sections "flexion" (pluriels, conjugaisons) ne sont pas de vraies définitions.
+// Renvois de genre/nombre traités comme des flexions, même hors section "flexion"
+const INFLECT = /\{\{\s*(?:masculin|féminin|feminin|singulier|pluriel)[a-zà-ÿ ]*\bde\s*\|/i;
+// Analyse la SECTION FRANÇAISE -> liste ORDONNÉE d'items :
+//   { kind:"def", text, marginal }  = vraie définition
+//   { kind:"ref", lemma }           = renvoi (flexion / féminin de / pluriel de…) vers un mot de base
+// Ignore les noms propres. Les sens régionaux/familiers sont repoussés (tri stable).
 function parseFrench(wikitext) {
   const start = wikitext.search(/==\s*\{\{langue\|fr\}\}\s*==/);
-  if (start < 0) return { real: [], base: "" };
+  if (start < 0) return [];
   let sec = wikitext.slice(start);
   const nxt = sec.slice(4).search(/\n==\s*\{\{langue\|/);
   if (nxt >= 0) sec = sec.slice(0, nxt + 4);
   const SKIP = /^(nom propre|prénom|nom de famille|patronyme|toponyme)/i;
   let skip = false, flexion = false;
-  const found = []; let base = "";
+  const items = [];
   for (const l of sec.split("\n")) {
     const h = l.match(/^={3,}\s*\{\{S\|([^}]+)\}\}/);        // en-tête sous-section : {{S|type|fr|flexion}}
     if (h) { const p = h[1].split("|").map((x) => x.trim()); skip = SKIP.test(p[0]); flexion = p.includes("flexion"); continue; }
     if (!/^#[^#*:]/.test(l)) continue;
     if (skip) continue;
-    if (flexion) { if (!base) base = lemmaOf(l); continue; }   // flexion -> on garde le lemme, pas la "définition"
     const raw = l.replace(/^#\s*/, "");
+    if (flexion || INFLECT.test(raw)) {                       // renvoi vers un lemme
+      const lemma = lemmaOf(raw);
+      if (lemma) items.push({ kind: "ref", lemma, marginal: 0 });
+      continue;
+    }
     const d = cleanWiki(raw);
-    if (d) found.push({ d, marginal: MARGINAL.test(raw) ? 1 : 0 });
+    if (d && /[a-zà-ÿ]/i.test(d)) items.push({ kind: "def", text: d, marginal: MARGINAL.test(raw) ? 1 : 0 });   // au moins une lettre
   }
-  found.sort((a, b) => a.marginal - b.marginal);   // sens neutres d'abord (tri stable)
-  return { real: found.slice(0, 3).map((x) => x.d), base };
+  items.sort((a, b) => a.marginal - b.marginal);   // sens neutres d'abord (tri stable => ordre des sections préservé)
+  return items;
 }
 async function fetchDefinition(mot, depth = 0) {
   const S = "https://fr.wiktionary.org/w/api.php";
@@ -123,22 +145,25 @@ async function fetchDefinition(mot, depth = 0) {
     const wt = p.revisions && p.revisions[0] && p.revisions[0].slots && p.revisions[0].slots.main && p.revisions[0].slots.main["*"];
     if (p.title && wt) byTitle[p.title.toLowerCase()] = wt;
   }
-  let flexBase = "";
-  for (const t of titles) {               // 1er candidat avec une VRAIE définition française
+  for (const t of titles) {               // 1er candidat qui produit quelque chose
     const wt = byTitle[t.toLowerCase()];
     if (!wt) continue;
-    const { real, base } = parseFrench(wt);
-    if (real.length) return real;
-    if (!flexBase && base) flexBase = base;   // sinon on retient le lemme d'une flexion
-  }
-  // pas de vraie définition, mais une flexion -> on suit vers le singulier / l'infinitif
-  if (flexBase && depth < 1 && flexBase.toLowerCase() !== mot.toLowerCase()) {
-    const r = await fetchDefinition(flexBase, depth + 1);
-    if (r.length) return r;
+    const items = parseFrench(wt);
+    if (!items.length) continue;
+    const out = [];
+    for (const it of items) {
+      if (out.length >= 3) break;
+      if (it.kind === "def") { if (!out.includes(it.text)) out.push(it.text); }
+      else if (depth < 1 && it.lemma && it.lemma.toLowerCase() !== mot.toLowerCase()) {   // renvoi -> définition du mot de base
+        const sub = await fetchDefinition(it.lemma, depth + 1);
+        for (const d of sub) { if (out.length >= 3) break; if (!out.includes(d)) out.push(d); }
+      }
+    }
+    if (out.length) return out;
   }
   return [];
 }
-const DEF_VERSION = 5;   // à incrémenter quand on change l'extraction => invalide le cache
+const DEF_VERSION = 7;   // à incrémenter quand on change l'extraction => invalide le cache
 async function getDefinition(mot) {
   try {
     const r = await scoresDb.execute({ sql: "SELECT def FROM defs WHERE mot = ?", args: [mot] });
