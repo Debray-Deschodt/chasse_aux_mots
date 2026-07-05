@@ -110,11 +110,11 @@ body:not(.online) #recordsBtn{display:none}
 #installBtn{background:var(--magenta); color:#fff; padding:7px 12px; white-space:nowrap}
 #installClose{background:transparent; color:#fff; opacity:.65; padding:4px 8px; font-size:15px}
 
-.forming{min-height:34px; display:flex; align-items:center; justify-content:center; gap:10px}
+.forming{height:34px; display:flex; align-items:center; justify-content:center; gap:10px; overflow:hidden}
 .forming .w{font-family:var(--display); font-weight:400; font-size:28px; letter-spacing:.08em; color:var(--ink); text-transform:uppercase}
 .forming .pts{font-size:12px; font-weight:700; color:#fff; background:var(--green); padding:2px 9px; border-radius:6px; opacity:0; transition:opacity .15s}
 .forming .pts.on{opacity:1}
-.forming .hint{color:var(--muted); font-size:14px; font-weight:500}
+.forming .hint{color:var(--muted); font-size:clamp(11px, 3.4vw, 13px); font-weight:500; white-space:nowrap}
 .forming .w.flash{font-size:20px; animation:formpop .18s ease-out}
 .forming .w.ok{color:var(--green)}
 .forming .w.burn,.forming .w.no{color:var(--magenta)}
