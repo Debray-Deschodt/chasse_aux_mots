@@ -65,27 +65,45 @@ function cleanWiki(s) {
     .replace(/\s+/g, " ").trim()
     .slice(0, 300);
 }
-// Extrait jusqu'à `max` définitions de la SECTION FRANÇAISE, en ignorant les noms propres
-function frenchDefs(wikitext, max) {
+// Récupère le lemme (forme de base) pointé par une définition de flexion
+function lemmaOf(rawLine) {
+  let m = rawLine.match(/\{\{fr-verbe-flexion\|\s*([^|}=]+)/i);              // conjugaisons : {{fr-verbe-flexion|manger|...}}
+  if (m) return m[1].trim();
+  m = rawLine.match(/\{\{[^|}]*\bde\|\s*([^|}=]+)/i);                       // {{pluriel de|chat|fr}}, {{féminin de|beau|fr}}
+  if (m) return m[1].trim();
+  const de = rawLine.toLowerCase().lastIndexOf(" de ");                     // "…de l'indicatif présent de [[manger]]" -> après le DERNIER "de"
+  if (de >= 0) {
+    const after = rawLine.slice(de);
+    m = after.match(/\[\[([^\]|#]+)/) || after.match(/\{\{[^|}]*\|\s*([^|}=]+)/);
+    if (m) return m[1].trim();
+  }
+  const links = [...rawLine.matchAll(/\[\[([^\]|#]+)/g)];                   // sinon : dernier lien de la ligne
+  if (links.length) return links[links.length - 1][1].trim();
+  return "";
+}
+// Analyse la SECTION FRANÇAISE : { real: vraies définitions, base: lemme d'une flexion }
+// Ignore les noms propres ; les sous-sections marquées "flexion" (pluriels, conjugaisons) ne sont pas de vraies définitions.
+function parseFrench(wikitext) {
   const start = wikitext.search(/==\s*\{\{langue\|fr\}\}\s*==/);
-  if (start < 0) return [];
+  if (start < 0) return { real: [], base: "" };
   let sec = wikitext.slice(start);
-  const nxt = sec.slice(4).search(/\n==\s*\{\{langue\|/);   // début de la langue suivante
+  const nxt = sec.slice(4).search(/\n==\s*\{\{langue\|/);
   if (nxt >= 0) sec = sec.slice(0, nxt + 4);
   const SKIP = /^(nom propre|prénom|nom de famille|patronyme|toponyme)/i;
-  let curSkip = false;
-  const out = [];
+  let skip = false, flexion = false;
+  const real = []; let base = "";
   for (const l of sec.split("\n")) {
-    const h = l.match(/^={3,}\s*\{\{S\|([^|}]+)/);          // en-tête de sous-section => type de mot
-    if (h) { curSkip = SKIP.test(h[1].trim()); continue; }
-    if (!curSkip && /^#[^#*:]/.test(l)) {
-      const d = cleanWiki(l.replace(/^#\s*/, ""));
-      if (d) { out.push(d); if (out.length >= max) break; }
-    }
+    const h = l.match(/^={3,}\s*\{\{S\|([^}]+)\}\}/);        // en-tête sous-section : {{S|type|fr|flexion}}
+    if (h) { const p = h[1].split("|").map((x) => x.trim()); skip = SKIP.test(p[0]); flexion = p.includes("flexion"); continue; }
+    if (!/^#[^#*:]/.test(l)) continue;
+    if (skip) continue;
+    if (flexion) { if (!base) base = lemmaOf(l); continue; }   // flexion -> on garde le lemme, pas la "définition"
+    const d = cleanWiki(l.replace(/^#\s*/, ""));
+    if (d && real.length < 3) real.push(d);
   }
-  return out;
+  return { real, base };
 }
-async function fetchDefinition(mot) {
+async function fetchDefinition(mot, depth = 0) {
   const S = "https://fr.wiktionary.org/w/api.php";
   const H = { headers: { "user-agent": "ChasseAuxMots/1.0 (jeu de lettres)" } };
   const s = await fetch(`${S}?action=query&list=search&srsearch=${encodeURIComponent(mot)}&srlimit=6&format=json&origin=*`, H);
@@ -101,15 +119,22 @@ async function fetchDefinition(mot) {
     const wt = p.revisions && p.revisions[0] && p.revisions[0].slots && p.revisions[0].slots.main && p.revisions[0].slots.main["*"];
     if (p.title && wt) byTitle[p.title.toLowerCase()] = wt;
   }
-  for (const t of titles) {           // ordre de pertinence : 1er candidat qui a une section française
+  let flexBase = "";
+  for (const t of titles) {               // 1er candidat avec une VRAIE définition française
     const wt = byTitle[t.toLowerCase()];
     if (!wt) continue;
-    const defs = frenchDefs(wt, 3);
-    if (defs.length) return defs;
+    const { real, base } = parseFrench(wt);
+    if (real.length) return real;
+    if (!flexBase && base) flexBase = base;   // sinon on retient le lemme d'une flexion
+  }
+  // pas de vraie définition, mais une flexion -> on suit vers le singulier / l'infinitif
+  if (flexBase && depth < 1 && flexBase.toLowerCase() !== mot.toLowerCase()) {
+    const r = await fetchDefinition(flexBase, depth + 1);
+    if (r.length) return r;
   }
   return [];
 }
-const DEF_VERSION = 2;   // à incrémenter quand on change l'extraction => invalide le cache
+const DEF_VERSION = 4;   // à incrémenter quand on change l'extraction => invalide le cache
 async function getDefinition(mot) {
   try {
     const r = await scoresDb.execute({ sql: "SELECT def FROM defs WHERE mot = ?", args: [mot] });
