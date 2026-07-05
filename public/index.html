@@ -67,6 +67,7 @@ body:not(.online) #accountBtn{display:none}
 #recordsModal{z-index:60}
 #settingsModal{z-index:60}
 .setrow{display:flex; align-items:center; justify-content:space-between; gap:12px; padding:14px 2px; border-bottom:1px solid var(--line); font-size:15px; color:var(--ink)}
+.setnote{color:var(--muted); font-size:13px; text-align:right}
 .switch{width:48px; height:28px; border-radius:999px; border:none; background:var(--line); position:relative; cursor:pointer; padding:0; flex:0 0 auto; transition:background .15s}
 .switch.on{background:var(--green)}
 .switch .knob{position:absolute; top:3px; left:3px; width:22px; height:22px; border-radius:50%; background:#fff; transition:left .15s}
@@ -1078,6 +1079,12 @@ const DICT_B64 = "H4sIAAAAAAACA2x923asOM/tfb8lK3HX0v8VRdrgjM56+j2wNA+u3heJpw6WZc
 
   // ---------- Réglages ----------
   function openSettings(){ el("settingsModal").hidden = false; renderSettings(); }
+  function installRow(){
+    if (isStandalone()) return `<div class="setrow"><span>Application</span><span class="setnote">Déjà installée ✓</span></div>`;
+    if (deferredPrompt) return `<div class="setrow"><span>Application</span><button class="btn ghost" id="installNow" style="padding:9px 18px">Installer</button></div>`;
+    if (isIOS()) return `<div class="setrow" style="align-items:flex-start"><span>Application</span><span class="setnote" style="max-width:62%">Bouton Partager, puis « Sur l'écran d'accueil »</span></div>`;
+    return `<div class="setrow" style="align-items:flex-start"><span>Application</span><span class="setnote" style="max-width:62%">Via le menu du navigateur : « Installer l'application »</span></div>`;
+  }
   function renderSettings(){
     el("settingsCard").innerHTML = `
       <div class="kicker">Réglages</div>
@@ -1090,6 +1097,7 @@ const DICT_B64 = "H4sIAAAAAAACA2x923asOM/tfb8lK3HX0v8VRdrgjM56+j2wNA+u3heJpw6WZc
         <span>Thème sombre</span>
         <button class="switch${SETTINGS.theme === "dark" ? " on" : ""}" id="themeToggle" role="switch" aria-checked="${SETTINGS.theme === "dark"}" aria-label="Thème sombre"><span class="knob"></span></button>
       </div>
+      ${installRow()}
       <button class="btn ghost" id="settingsClose" style="margin-top:18px">Fermer</button>`;
     el("soundToggle").onclick = () => {
       SETTINGS.sound = !SETTINGS.sound; saveSettings();
@@ -1099,6 +1107,13 @@ const DICT_B64 = "H4sIAAAAAAACA2x923asOM/tfb8lK3HX0v8VRdrgjM56+j2wNA+u3heJpw6WZc
     el("themeToggle").onclick = () => {
       SETTINGS.theme = SETTINGS.theme === "dark" ? "light" : "dark"; saveSettings();
       applyTheme(); renderSettings();
+    };
+    const inst = el("installNow");
+    if (inst) inst.onclick = async () => {
+      if (!deferredPrompt) return;
+      deferredPrompt.prompt();
+      await deferredPrompt.userChoice.catch(() => {});
+      deferredPrompt = null; renderSettings();
     };
     el("settingsClose").onclick = () => { el("settingsModal").hidden = true; };
   }
