@@ -131,7 +131,7 @@ function parseFrench(wikitext) {
 }
 async function fetchDefinition(mot, depth = 0) {
   const S = "https://fr.wiktionary.org/w/api.php";
-  const H = { headers: { "user-agent": "ChasseAuxMots/1.0 (jeu de lettres)" } };
+  const H = { headers: { "user-agent": "ChasseAuxMots/1.0 (+https://chasse-aux-mots.fr; jeu de lettres)" } };
   const s = await fetch(`${S}?action=query&list=search&srsearch=${encodeURIComponent(mot)}&srlimit=6&format=json&origin=*`, H);
   const sj = await s.json();
   const titles = [mot];   // la page au titre EXACT d'abord (fiable pour les petits mots courants)
@@ -164,7 +164,7 @@ async function fetchDefinition(mot, depth = 0) {
   }
   return [];
 }
-const DEF_VERSION = 8;   // à incrémenter quand on change l'extraction => invalide le cache
+const DEF_VERSION = 9;   // à incrémenter quand on change l'extraction => invalide le cache
 async function getDefinition(mot) {
   try {
     const r = await scoresDb.execute({ sql: "SELECT def FROM defs WHERE mot = ?", args: [mot] });
@@ -175,7 +175,11 @@ async function getDefinition(mot) {
   } catch {}
   let defs = [];
   try { defs = await fetchDefinition(mot); } catch {}
-  try { await scoresDb.execute({ sql: "INSERT OR REPLACE INTO defs(mot, def, ts) VALUES(?,?,?)", args: [mot, JSON.stringify({ v: DEF_VERSION, defs }), Date.now()] }); } catch {}
+  // On ne met en cache QUE les résultats non vides : un échec transitoire (réseau, rate-limit)
+  // ne doit pas figer un mot en "introuvable" pour toujours.
+  if (defs.length) {
+    try { await scoresDb.execute({ sql: "INSERT OR REPLACE INTO defs(mot, def, ts) VALUES(?,?,?)", args: [mot, JSON.stringify({ v: DEF_VERSION, defs }), Date.now()] }); } catch {}
+  }
   return defs;
 }
 
