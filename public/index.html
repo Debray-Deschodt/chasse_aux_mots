@@ -936,10 +936,12 @@ const DICT_B64 = "H4sIAAAAAAACA2RdaZPjKBL9Pv9SXWbU7FpWDQLHVP/6DZH5DrwR3cXLkyMTCa
     el("auNewName").onkeydown = (e) => { if (e.key === "Enter") doRename(); };
     el("authModal").hidden = false;
   }
+  const hasEmoji = (s) => /\p{Extended_Pictographic}|[\u{1F1E6}-\u{1F1FF}\u{FE0F}\u{20E3}]/u.test(s);
   async function doRename(){
     const v = el("auNewName").value.trim();
     const err = el("auErr2"); if (err) err.textContent = "";
     if (v.length < 2 || v.length > 24){ if (err) err.textContent = "Entre 2 et 24 caractères."; return; }
+    if (hasEmoji(v)){ if (err) err.textContent = "Pas d'emojis dans le pseudo."; return; }
     if (v === NET.username){ closeAuth(); return; }
     const r = await apiPost("/api/auth/update-user", { name: v });
     if (r.status === 200){ await refreshIdentity(); openAccount(); toast("ok", "pseudo mis à jour"); }
@@ -950,6 +952,7 @@ const DICT_B64 = "H4sIAAAAAAACA2RdaZPjKBL9Pv9SXWbU7FpWDQLHVP/6DZH5DrwR3cXLkyMTCa
     const name = signup ? (el("auName").value.trim() || email.split("@")[0]) : undefined;
     const err = el("auErr"); err.textContent = "";
     if (!email || pass.length < 8){ err.textContent = "Email + mot de passe (8 caractères min.)."; return; }
+    if (signup && hasEmoji(name)){ err.textContent = "Pas d'emojis dans le pseudo."; return; }
     const path = signup ? "/api/auth/sign-up/email" : "/api/auth/sign-in/email";
     const r = await apiPost(path, signup ? { name, email, password: pass } : { email, password: pass });
     if (r.status === 200){ closeAuth(); await refreshIdentity(); toast("ok", signup ? "compte créé" : "connecté·e"); }
