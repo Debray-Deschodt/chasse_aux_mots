@@ -38,7 +38,9 @@ body{
   background-attachment:fixed;
   min-height:100dvh; display:flex; justify-content:center;
   padding:max(12px, env(safe-area-inset-top)) 14px max(18px, env(safe-area-inset-bottom));
+  -webkit-user-select:none; user-select:none; -webkit-touch-callout:none;
 }
+input, textarea{ -webkit-user-select:text; user-select:text; -webkit-touch-callout:default }
 .app{width:100%; max-width:460px; display:flex; flex-direction:column; gap:14px}
 
 header{display:flex; align-items:flex-end; justify-content:space-between; gap:12px}
