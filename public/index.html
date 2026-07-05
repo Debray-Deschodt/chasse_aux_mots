@@ -139,12 +139,13 @@ body:not(.online) #recordsBtn{display:none}
 .overlay{position:fixed; inset:0; z-index:50; display:flex; align-items:center; justify-content:center; padding:22px;
   background:radial-gradient(120% 80% at 50% -10%, #fbf7ee 0%, var(--bg) 55%, #ece3d1 100%)}
 .overlay[hidden]{display:none}
+.overlay.breakbg{background:rgba(24,22,19,.34); -webkit-backdrop-filter:blur(12px); backdrop-filter:blur(12px)}
 .card{width:100%; max-width:380px; max-height:92vh; overflow:auto; -webkit-overflow-scrolling:touch; overscroll-behavior:contain; background:var(--panel); border:1.5px solid var(--line); border-radius:18px;
   padding:26px 22px; box-shadow:0 24px 50px -22px rgba(25,22,19,.5); text-align:center}
-.card.breakcard{display:flex; flex-direction:column; overflow:hidden; position:relative}
+.card.breakcard{display:flex; flex-direction:column; overflow:hidden; position:relative; max-height:82vh}
 .cardmin{position:absolute; top:10px; right:12px; width:30px; height:30px; border-radius:50%; border:1.5px solid var(--line); background:#fff; color:var(--muted); font-size:15px; line-height:1; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; z-index:2; padding:0}
 .miniexpand{display:none}
-.overlay.minimized{background:transparent; pointer-events:none; align-items:flex-end}
+.overlay.minimized{background:transparent; -webkit-backdrop-filter:none; backdrop-filter:none; pointer-events:none; align-items:flex-end}
 .overlay.minimized .card{pointer-events:auto; flex-direction:row; align-items:center; justify-content:center; gap:14px; height:auto; max-height:none; min-height:0; width:auto; padding:12px 18px; cursor:pointer}
 .overlay.minimized .card > *{display:none}
 .overlay.minimized .card > #nextIn{display:block; margin:0; font-size:16px}
@@ -539,6 +540,7 @@ const DICT_B64 = "H4sIAAAAAAACA2x923asOM/tfb8lK3HX0v8VRdrgjM56+j2wNA+u3heJpw6WZc
   function showCard(kind){
     const card = el("card"); el("overlay").hidden = false;
     el("overlay").classList.remove("minimized");
+    el("overlay").classList.remove("breakbg");
     card.classList.remove("breakcard");
     if (kind === "loading"){
       card.innerHTML = `<div class="kicker">Préparation</div><h2>Chasse aux mots</h2>
@@ -755,6 +757,7 @@ const DICT_B64 = "H4sIAAAAAAACA2x923asOM/tfb8lK3HX0v8VRdrgjM56+j2wNA+u3heJpw6WZc
   function showBreak(st){
     el("overlay").hidden = false;
     el("overlay").classList.remove("minimized");
+    el("overlay").classList.add("breakbg");
     el("card").classList.add("breakcard");
     breakSel = -1; breakAll = [];
     el("card").innerHTML = `
