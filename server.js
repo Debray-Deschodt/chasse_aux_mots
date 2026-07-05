@@ -24,6 +24,14 @@ const CYCLE_MS = PLAY_MS + BREAK_MS;
 const EPOCH = 0;          // référence fixe : ne plus la changer une fois en prod
 const KEEP_ROUNDS = 10;   // on ne garde que les dernières manches en mémoire
 const MAX_NAME = 24;
+// Retire emojis / pictogrammes / drapeaux d'un pseudo, compacte les espaces et tronque
+function cleanName(s) {
+  return String(s || "")
+    .replace(/[\p{Extended_Pictographic}\u{1F1E6}-\u{1F1FF}\u{1F3FB}-\u{1F3FF}\u{FE0F}\u{200D}\u{20E3}]/gu, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, MAX_NAME);
+}
 
 // ---------- État mémoire ----------
 const players = new Map();        // id -> { username }
@@ -40,6 +48,43 @@ async function initScoresDb() {
     score INTEGER, found INTEGER, total INTEGER,
     ts INTEGER)`);
   await scoresDb.execute(`CREATE INDEX IF NOT EXISTS idx_results_ts ON results(ts)`);
+  await scoresDb.execute(`CREATE TABLE IF NOT EXISTS defs(mot TEXT PRIMARY KEY, def TEXT, ts INTEGER)`);
+}
+
+// ---------- Définitions (Wiktionnaire, avec cache) ----------
+function cleanWiki(s) {
+  let out = s;
+  for (let i = 0; i < 5; i++) out = out.replace(/\{\{[^{}]*\}\}/g, "");   // gabarits (dérécursivés)
+  return out
+    .replace(/\[\[([^\]|]*)\|([^\]]*)\]\]/g, "$2")   // [[a|b]] -> b
+    .replace(/\[\[([^\]]*)\]\]/g, "$1")              // [[a]] -> a
+    .replace(/'''?/g, "")                            // gras / italique
+    .replace(/<[^>]+>/g, "")                         // balises html
+    .replace(/\s+/g, " ").trim()
+    .slice(0, 400);
+}
+async function fetchDefinition(mot) {
+  const S = "https://fr.wiktionary.org/w/api.php";
+  const H = { headers: { "user-agent": "ChasseAuxMots/1.0 (jeu de lettres)" } };
+  const s = await fetch(`${S}?action=query&list=search&srsearch=${encodeURIComponent(mot)}&srlimit=1&format=json&origin=*`, H);
+  const sj = await s.json();
+  const title = sj && sj.query && sj.query.search && sj.query.search[0] && sj.query.search[0].title;
+  if (!title) return "";
+  const w = await fetch(`${S}?action=parse&page=${encodeURIComponent(title)}&prop=wikitext&format=json&origin=*`, H);
+  const wj = await w.json();
+  const wt = (wj && wj.parse && wj.parse.wikitext && wj.parse.wikitext["*"]) || "";
+  const line = wt.split("\n").find((l) => /^#[^#*:]/.test(l));   // première vraie ligne de définition
+  return line ? cleanWiki(line.replace(/^#\s*/, "")) : "";
+}
+async function getDefinition(mot) {
+  try {
+    const r = await scoresDb.execute({ sql: "SELECT def FROM defs WHERE mot = ?", args: [mot] });
+    if (r.rows.length) return String(r.rows[0].def || "");
+  } catch {}
+  let def = "";
+  try { def = await fetchDefinition(mot); } catch {}
+  try { await scoresDb.execute({ sql: "INSERT OR REPLACE INTO defs(mot, def, ts) VALUES(?,?,?)", args: [mot, def, Date.now()] }); } catch {}
+  return def;
 }
 
 // Écrit en base les résultats des manches terminées (manche courante incluse dès la pause)
@@ -231,7 +276,7 @@ const server = http.createServer(async (req, res) => {
       let id, username, authenticated = false;
       if (session?.user) {
         id = "u:" + session.user.id;                                   // identité stable du compte
-        username = (session.user.name || session.user.email || "Joueur").slice(0, MAX_NAME);
+        username = cleanName(session.user.name) || cleanName(session.user.email) || "Joueur";
         authenticated = true;
       } else {
         id = randomUUID();
@@ -267,6 +312,14 @@ const server = http.createServer(async (req, res) => {
         topProportion(w.day), topProportion(w.week), topProportion(w.all),
       ]);
       return send(res, 200, { scores: { day: sd, week: sw, all: sa }, props: { day: pd, week: pw, all: pa } });
+    }
+
+    // Définition d'un mot (Wiktionnaire, mise en cache)
+    if (req.method === "GET" && pathname === "/api/define") {
+      const mot = (searchParams.get("mot") || "").toLowerCase().replace(/[^a-zà-ÿ]/g, "").slice(0, 40);
+      if (!mot || mot.length < 2) return send(res, 400, { error: "bad_word" });
+      const def = await getDefinition(mot);
+      return send(res, 200, { mot, def });
     }
 
     // Classement d'une manche précise (ou la courante par défaut)

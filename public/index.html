@@ -66,6 +66,9 @@ body:not(.online) #accountBtn{display:none}
 #authModal{z-index:60}
 #recordsModal{z-index:60}
 #settingsModal{z-index:60}
+#defModal{z-index:70}
+#defText{font-size:15px; line-height:1.45; color:var(--ink); margin:8px 0 18px}
+.word{-webkit-user-select:none; user-select:none; -webkit-touch-callout:none}
 .setrow{display:flex; align-items:center; justify-content:space-between; gap:12px; padding:14px 2px; border-bottom:1px solid var(--line); font-size:15px; color:var(--ink)}
 .setnote{color:var(--muted); font-size:13px; text-align:right}
 .switch{width:48px; height:28px; border-radius:999px; border:none; background:var(--line); position:relative; cursor:pointer; padding:0; flex:0 0 auto; transition:background .15s}
@@ -279,6 +282,10 @@ body:not(.online) #recordsBtn{display:none}
 <!-- Palmarès (records persistants) -->
 <div class="overlay" id="recordsModal" hidden>
   <div class="card" id="recordsCard"><!-- filled by JS --></div>
+</div>
+
+<div class="overlay" id="defModal" hidden>
+  <div class="card" id="defCard"><!-- filled by JS --></div>
 </div>
 
 <div class="overlay" id="settingsModal" hidden>
@@ -834,7 +841,7 @@ const DICT_B64 = "H4sIAAAAAAACA2RdaZPjKBL9Pv9SXWbU7FpWDQLHVP/6DZH5DrwR3cXLkyMTCa
     const score = breakSel < 0 ? state.score : (NET.leaderboard[breakSel] ? NET.leaderboard[breakSel].score : 0);
     recap.innerHTML = `<div><b>${score}/${max}</b>score</div><div><b>${got}/${breakAll.length}</b>mots</div>`;
     list.innerHTML = breakAll.map(w =>
-      `<span class="word ${set.has(w) ? "got" : ""}">${w.toUpperCase()}<i>${scoreFor(w.length)}</i></span>`
+      `<span class="word ${set.has(w) ? "got" : ""}" data-w="${w}">${w.toUpperCase()}<i>${scoreFor(w.length)}</i></span>`
     ).join("");
   }
 
@@ -867,6 +874,15 @@ const DICT_B64 = "H4sIAAAAAAACA2RdaZPjKBL9Pv9SXWbU7FpWDQLHVP/6DZH5DrwR3cXLkyMTCa
       el("lb").innerHTML = lbRows();
       renderWordlist();
     };
+    // Appui long (mobile) / double-clic (desktop) sur un mot -> définition
+    const wl = el("wordlist");
+    let lpT = null, lpWord = null, moved = false;
+    const cancelLp = () => { clearTimeout(lpT); lpT = null; };
+    wl.onpointerdown = (ev) => { const s = ev.target.closest(".word"); if (!s) return; lpWord = s.dataset.w; moved = false; cancelLp(); lpT = setTimeout(() => { lpT = null; if (!moved) showDef(lpWord); }, 500); };
+    wl.onpointermove = () => { moved = true; };
+    wl.onpointerup = cancelLp;
+    wl.onpointercancel = cancelLp;
+    wl.ondblclick = (ev) => { const s = ev.target.closest(".word"); if (s) showDef(s.dataset.w); };
     fillSolution(st.seed);
     loadBreakBadges();
   }
@@ -1127,6 +1143,22 @@ const DICT_B64 = "H4sIAAAAAAACA2RdaZPjKBL9Pv9SXWbU7FpWDQLHVP/6DZH5DrwR3cXLkyMTCa
     el("settingsClose").onclick = () => { el("settingsModal").hidden = true; };
   }
   el("settingsBtn").onclick = openSettings;
+
+  // ---------- Définition d'un mot ----------
+  const defCache = new Map();
+  async function showDef(word){
+    if (!word) return;
+    el("defCard").innerHTML = `<div class="kicker">Définition</div><h2>${word.toUpperCase()}</h2><p id="defText">…</p><button class="btn ghost" id="defClose">Fermer</button>`;
+    el("defModal").hidden = false;
+    el("defClose").onclick = () => { el("defModal").hidden = true; };
+    let def = defCache.get(word);
+    if (def === undefined){
+      try { const r = await apiGet(`/api/define?mot=${encodeURIComponent(word)}`); def = (r && r.def) ? r.def : ""; }
+      catch { def = ""; }
+      defCache.set(word, def);
+    }
+    const t = el("defText"); if (t) t.textContent = def || "Définition introuvable.";
+  }
 
   window.addEventListener("resize", drawPath);
 
