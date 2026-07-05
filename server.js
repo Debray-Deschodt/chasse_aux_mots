@@ -306,12 +306,36 @@ function recordScore(id, round, score, words, total) {
 }
 
 // ---------- Usernames visiteurs (en attendant l'auth) ----------
-const ADJ = ["Vif", "Malin", "Rusé", "Futé", "Agile", "Calme", "Joyeux", "Sage", "Rapide", "Discret"];
-const ANI = ["Renard", "Hibou", "Lynx", "Loutre", "Faucon", "Castor", "Furet", "Corbeau", "Belette", "Martre"];
+// Adjectifs (au masculin) et animaux (avec leur genre) pour les pseudos d'invités
+const ADJ = ["curieux","pantois","chétif","badin","vigoureux","stupide","rusé","robuste","vaillant","valeureux",
+  "solide","aberrant","dédaigneux","repenti","résilient","affligé","ténébreux","sinistre","complaisant","hirsute",
+  "trivial","grégaire","caduc","démodé","desséché","sage","rancunier","magnanime","indulgent","amer","malin","ravi",
+  "sournois","dégarni","fringant","vif","sympa","timide","tordu","taiseux","fatigué","agile"];
+// [nom, féminin ?]
+const ANI = [["singe",0],["cheval",0],["âne",0],["chenille",1],["poisson",0],["ours",0],["aigle",0],["poussin",0],
+  ["mouette",1],["goéland",0],["renard",0],["perdrix",1],["poule",1],["crapaud",0],["crevette",1],["vipère",1],
+  ["pieuvre",1],["mulot",0],["seiche",1],["grillon",0],["sardine",1],["canard",0],["caille",1],["oie",1],["buse",1],
+  ["loche",1],["ver",0],["écureuil",0],["chevreuil",0],["mouche",1],["antilope",1],["autruche",1],["buffle",0],
+  ["toucan",0],["blaireau",0],["lièvre",0],["hérisson",0],["loir",0],["loutre",1],["hibou",0],["lynx",0],["corbeau",0],
+  ["faucon",0],["castor",0],["rat",0],["mite",1],["cormoran",0],["caribou",0],["belette",1],["chouette",1],["lézard",0],
+  ["moineau",0],["mésange",1],["pigeon",0],["escargot",0],["hareng",0],["anguille",1],["brochet",0]];
+// Accorde un adjectif masculin au féminin
+const FEM_IRR = { malin: "maligne" };
+function feminize(adj) {
+  if (FEM_IRR[adj]) return FEM_IRR[adj];
+  if (adj === "sympa" || /e$/.test(adj)) return adj;          // -e (ou sympa) : invariable
+  if (/eux$/.test(adj)) return adj.replace(/eux$/, "euse");   // curieux -> curieuse
+  if (/if$/.test(adj)) return adj.replace(/if$/, "ive");      // vif -> vive
+  if (/c$/.test(adj)) return adj.replace(/c$/, "que");        // caduc -> caduque
+  if (/er$/.test(adj)) return adj.replace(/er$/, "ère");      // amer -> amère, rancunier -> rancunière
+  return adj + "e";                                           // rusé -> rusée, vaillant -> vaillante…
+}
 function visitorName() {
-  const a = ADJ[(Math.random() * ADJ.length) | 0];
-  const n = ANI[(Math.random() * ANI.length) | 0];
-  return `${a}${n}${100 + ((Math.random() * 900) | 0)}`;
+  const [ani, fem] = ANI[(Math.random() * ANI.length) | 0];
+  let adj = ADJ[(Math.random() * ADJ.length) | 0];
+  if (fem) adj = feminize(adj);
+  const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
+  return cap(adj) + cap(ani) + (100 + ((Math.random() * 900) | 0));
 }
 
 // ---------- Helpers HTTP ----------
