@@ -474,6 +474,31 @@ const DICT_B64 = "H4sIAAAAAAACA2x923asOM/tfb8lK3HX0v8VRdrgjM56+j2wNA+u3heJpw6WZc
     return { kind:"ok", msg: pick(PRAISE.flex) };
   }
 
+  // ---------- Sauvegarde locale de la manche en cours (mots + score) ----------
+  const ROUND_SAVE = "cam_round";
+  function saveRound(){
+    try {
+      if (!state.seed) return;
+      localStorage.setItem(ROUND_SAVE, JSON.stringify({ seed: state.seed, e: [...state.found.entries()] }));
+    } catch {}
+  }
+  function restoreRound(seed){
+    try {
+      const raw = localStorage.getItem(ROUND_SAVE); if (!raw) return false;
+      const d = JSON.parse(raw);
+      if (!d || d.seed !== seed || !Array.isArray(d.e) || !d.e.length) return false;
+      state.found.clear(); state.score = 0; state.best = { word: "", pts: 0 };
+      for (const it of d.e){
+        if (!Array.isArray(it)) continue;
+        const w = it[0], p = Number(it[1]);
+        if (typeof w !== "string" || !Number.isFinite(p)) continue;
+        state.found.set(w, p); state.score += p;
+        if (p > state.best.pts) state.best = { word: w, pts: p };
+      }
+      return state.found.size > 0;
+    } catch { return false; }
+  }
+
   function submit(){
     const w = currentWord();
     const pathCopy = state.path.slice();
@@ -488,6 +513,7 @@ const DICT_B64 = "H4sIAAAAAAACA2x923asOM/tfb8lK3HX0v8VRdrgjM56+j2wNA+u3heJpw6WZc
     const pr = praise(w.length);
     sfxWord(w.length);
     render(); flash(pr.kind, pr.msg, "+" + pts);
+    saveRound();
     if (NET.online) submitScore();
     for (const p of pathCopy){ const t = tileAt(p.r,p.c); if (t){ t.classList.add("pop"); setTimeout(() => t.classList.remove("pop"), 300); } }
   }
@@ -669,14 +695,16 @@ const DICT_B64 = "H4sIAAAAAAACA2x923asOM/tfb8lK3HX0v8VRdrgjM56+j2wNA+u3heJpw6WZc
     if (st.phase === "play"){
       if (NET.lastPhase !== "play" || NET.lastSeed !== st.seed){      // (re)démarrage de manche
         ensureGrid(st.seed);
-        state.found.clear(); state.score = 0; state.best = { word:"", pts:0 };
+        if (!restoreRound(st.seed)){ state.found.clear(); state.score = 0; state.best = { word:"", pts:0 }; }
         NET.lastSent = -1; clearPath(); render();
         state.running = true; el("overlay").hidden = true;
+        if (NET.online && state.found.size) submitScore(true);
       }
     } else {                                                          // pause : classement + mots
       if (NET.lastPhase !== "break" || NET.lastSeed !== st.seed){
         state.running = false; clearPath();
         ensureGrid(st.seed);
+        if (!state.found.size) restoreRound(st.seed);
         submitScore(true);
         showBreak(st);
       } else {
