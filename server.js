@@ -343,7 +343,7 @@ function visitorName() {
 // Le dernier joueur à trouver le nom d'un animal récupère son emoji ; à égalité de manche,
 // c'est le meilleur score. Le détenteur garde l'emoji tant que personne d'autre ne le trouve.
 const ANIMOJI = {
-  singe:"🐒", cheval:"🐴", "âne":"🫏", chenille:"🐛", poisson:"🐟", ours:"🐻", aigle:"🦅",
+  singe:"🦧", cheval:"🐴", "âne":"🫏", chenille:"🐛", poisson:"🐟", ours:"🐻", aigle:"🦅",
   poussin:"🐤", mouette:"🕊️", "goéland":"🐦", renard:"🦊", perdrix:"🐦", poule:"🐔",
   crapaud:"🐸", crevette:"🦐", "vipère":"🐍", pieuvre:"🐙", mulot:"🐭", seiche:"🦑",
   grillon:"🦗", sardine:"🐟", canard:"🦆", caille:"🐦", oie:"🦢", buse:"🦅", loche:"🐟",
