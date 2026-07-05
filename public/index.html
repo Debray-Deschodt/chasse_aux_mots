@@ -31,7 +31,7 @@
   --ui:"Space Grotesk", system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
 }
 *{box-sizing:border-box; -webkit-tap-highlight-color:transparent}
-html,body{margin:0; height:100%}
+html,body{margin:0; height:100%; overflow-x:hidden}
 body{
   font-family:var(--ui); color:var(--text);
   background:radial-gradient(120% 80% at 50% -10%, #fbf7ee 0%, var(--bg) 55%, #ece3d1 100%);
@@ -42,14 +42,20 @@ body{
 }
 input, textarea{ -webkit-user-select:text; user-select:text; -webkit-touch-callout:default }
 .app{width:100%; max-width:460px; display:flex; flex-direction:column; gap:14px}
+@media (max-height: 720px){
+  .app{gap:9px}
+  .brand h1{font-size:clamp(24px, 7vw, 34px)}
+  .chrono{font-size:clamp(24px, 6vw, 30px)}
+  .brand .kicker{font-size:10px}
+}
 
 header{display:flex; align-items:flex-end; justify-content:space-between; gap:12px}
 .brand{line-height:1}
 .brand .kicker{display:inline-block; font-size:11px; letter-spacing:.12em; text-transform:uppercase; font-weight:700;
   color:#fff; background:var(--magenta); padding:3px 8px; transform:rotate(-2.5deg)}
-.brand h1{font-family:var(--display); font-weight:400; font-size:42px; margin:7px 0 0; letter-spacing:.01em;
-  text-transform:uppercase; color:var(--ink)}
-.chrono{font-family:var(--display); font-weight:400; font-size:34px; font-variant-numeric:tabular-nums; color:var(--ink); line-height:1}
+.brand h1{font-family:var(--display); font-weight:400; font-size:clamp(26px, 8vw, 42px); margin:7px 0 0; letter-spacing:.01em;
+  text-transform:uppercase; color:var(--ink); white-space:nowrap}
+.chrono{font-family:var(--display); font-weight:400; font-size:clamp(26px, 7vw, 34px); font-variant-numeric:tabular-nums; color:var(--ink); line-height:1}
 .chrono.low{color:var(--magenta); animation:pulse .8s infinite}
 @keyframes pulse{50%{opacity:.45}}
 
@@ -115,7 +121,7 @@ body:not(.online) #recordsBtn{display:none}
 .forming .pts.burn{background:var(--magenta)}
 @keyframes formpop{from{transform:scale(.92); opacity:.3} to{transform:scale(1); opacity:1}}
 
-.boardwrap{position:relative; aspect-ratio:1; background:var(--board); border:1.5px solid var(--line); border-radius:16px; padding:12px; box-shadow:0 16px 34px -18px rgba(25,22,19,.45)}
+.boardwrap{position:relative; aspect-ratio:1; width:100%; max-width:min(100%, calc(100svh - 300px)); align-self:center; background:var(--board); border:1.5px solid var(--line); border-radius:16px; padding:12px; box-shadow:0 16px 34px -18px rgba(25,22,19,.45)}
 .grid{position:relative; width:100%; height:100%; display:grid; gap:8px; z-index:2; touch-action:none}
 .tile{position:relative; display:flex; align-items:center; justify-content:center; border-radius:12px;
   background:#fffdf7; color:var(--ink); font-family:var(--display); font-weight:400; font-size:clamp(26px,7.2vw,38px);
