@@ -737,12 +737,23 @@ const DICT_B64 = "H4sIAAAAAAACA2RdaZPjKBL9Pv9SXWbU7FpWDQLHVP/6DZH5DrwR3cXLkyMTCa
   const apiPost = (p, b) => fetch(API + p, { method:"POST", headers:{"content-type":"application/json"}, body:JSON.stringify(b) })
                             .then(async r => ({ status:r.status, json: await r.json() }));
 
+  // Identité invité persistée (pour garder le même pseudo après reconnexion)
+  const GUEST_KEY = "cam_guest";
+  const loadGuest = () => { try { return JSON.parse(localStorage.getItem(GUEST_KEY) || "null"); } catch { return null; } };
+  async function joinNet(){
+    const g = loadGuest();
+    const j = (await apiPost("/api/join", g ? { guestId: g.id, guestName: g.username } : {})).json;
+    NET.id = j.id; NET.username = j.username; NET.authenticated = !!j.authenticated;
+    if (!NET.authenticated && NET.id) { try { localStorage.setItem(GUEST_KEY, JSON.stringify({ id: NET.id, username: NET.username })); } catch {} }
+    return j;
+  }
+
   async function connectMultiplayer(){
     let st;
     try { st = await apiGet("/api/state"); } catch { return false; }  // pas de serveur -> mode solo
     if (!st || typeof st.round !== "number") return false;
     NET.online = true; NET.offset = st.serverTime - Date.now(); NET.state = st; NET.leaderboard = st.leaderboard || [];
-    try { const j = (await apiPost("/api/join", {})).json; NET.id = j.id; NET.username = j.username; NET.authenticated = !!j.authenticated; } catch {}
+    try { await joinNet(); } catch {}
     document.body.classList.add("online");
     if (NET.username) el("user").textContent = NET.username;
     updateAccountUI();
@@ -916,7 +927,7 @@ const DICT_B64 = "H4sIAAAAAAACA2RdaZPjKBL9Pv9SXWbU7FpWDQLHVP/6DZH5DrwR3cXLkyMTCa
     document.body.classList.toggle("authed", !!NET.authenticated);
   }
   async function refreshIdentity(){
-    try { const j = (await apiPost("/api/join", {})).json; NET.id = j.id; NET.username = j.username; NET.authenticated = !!j.authenticated; } catch {}
+    try { await joinNet(); } catch {}
     if (NET.username) el("user").textContent = NET.username;
     updateAccountUI();
   }

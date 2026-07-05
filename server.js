@@ -366,8 +366,9 @@ const server = http.createServer(async (req, res) => {
       return send(res, 200, { ...st, leaderboard: leaderboard(st.round, st.phase === "break") });
     }
 
-    // Rejoindre : si connecté -> identité du compte ; sinon -> visiteur
+    // Rejoindre : si connecté -> identité du compte ; sinon -> visiteur (identité réutilisée si le client la renvoie)
     if (req.method === "POST" && pathname === "/api/join") {
+      const body = await readBody(req);
       const session = await auth.api.getSession({ headers: fromNodeHeaders(req.headers) }).catch(() => null);
       let id, username, authenticated = false;
       if (session?.user) {
@@ -375,8 +376,11 @@ const server = http.createServer(async (req, res) => {
         username = cleanName(session.user.name) || cleanName(session.user.email) || "Joueur";
         authenticated = true;
       } else {
-        id = randomUUID();
-        username = visitorName();
+        const gid = typeof body.guestId === "string" ? body.guestId.trim() : "";
+        const clientId = /^[A-Za-z0-9_-]{8,64}$/.test(gid) ? gid : null;   // UUID invité (jamais un id de compte "u:…")
+        const clientName = cleanName(body.guestName);
+        id = clientId || randomUUID();                                  // réutilise l'identité invité si fournie
+        username = clientName || visitorName();
       }
       players.set(id, { username });
       return send(res, 200, { id, username, authenticated, ...currentRound() });
