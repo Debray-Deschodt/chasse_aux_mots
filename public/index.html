@@ -68,6 +68,8 @@ body:not(.online) #accountBtn{display:none}
 #settingsModal{z-index:60}
 #defModal{z-index:70}
 #defText{font-size:15px; line-height:1.45; color:var(--ink); margin:8px 0 18px}
+#defText p{margin:0 0 8px}
+#defText p:last-child{margin-bottom:0}
 .word{-webkit-user-select:none; user-select:none; -webkit-touch-callout:none}
 .setrow{display:flex; align-items:center; justify-content:space-between; gap:12px; padding:14px 2px; border-bottom:1px solid var(--line); font-size:15px; color:var(--ink)}
 .setnote{color:var(--muted); font-size:13px; text-align:right}
@@ -1146,18 +1148,20 @@ const DICT_B64 = "H4sIAAAAAAACA2RdaZPjKBL9Pv9SXWbU7FpWDQLHVP/6DZH5DrwR3cXLkyMTCa
 
   // ---------- Définition d'un mot ----------
   const defCache = new Map();
+  const escDef = (s) => String(s).replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
   async function showDef(word){
     if (!word) return;
-    el("defCard").innerHTML = `<div class="kicker">Définition</div><h2>${word.toUpperCase()}</h2><p id="defText">…</p><button class="btn ghost" id="defClose">Fermer</button>`;
+    el("defCard").innerHTML = `<div class="kicker">Définition</div><h2>${word.toUpperCase()}</h2><div id="defText">…</div><button class="btn ghost" id="defClose">Fermer</button>`;
     el("defModal").hidden = false;
     el("defClose").onclick = () => { el("defModal").hidden = true; };
-    let def = defCache.get(word);
-    if (def === undefined){
-      try { const r = await apiGet(`/api/define?mot=${encodeURIComponent(word)}`); def = (r && r.def) ? r.def : ""; }
-      catch { def = ""; }
-      defCache.set(word, def);
+    let defs = defCache.get(word);
+    if (defs === undefined){
+      try { const r = await apiGet(`/api/define?mot=${encodeURIComponent(word)}`); defs = Array.isArray(r && r.defs) ? r.defs : []; }
+      catch { defs = []; }
+      defCache.set(word, defs);
     }
-    const t = el("defText"); if (t) t.textContent = def || "Définition introuvable.";
+    const t = el("defText"); if (!t) return;
+    t.innerHTML = defs.length ? defs.map((d) => `<p>${escDef(d)}</p>`).join("") : `<p>Définition introuvable.</p>`;
   }
 
   window.addEventListener("resize", drawPath);

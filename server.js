@@ -51,7 +51,7 @@ async function initScoresDb() {
   await scoresDb.execute(`CREATE TABLE IF NOT EXISTS defs(mot TEXT PRIMARY KEY, def TEXT, ts INTEGER)`);
 }
 
-// ---------- Définitions (Wiktionnaire, avec cache) ----------
+// ---------- Définitions (Wiktionnaire, section française, avec cache) ----------
 function cleanWiki(s) {
   let out = s;
   for (let i = 0; i < 5; i++) out = out.replace(/\{\{[^{}]*\}\}/g, "");   // gabarits (dérécursivés)
@@ -61,30 +61,54 @@ function cleanWiki(s) {
     .replace(/'''?/g, "")                            // gras / italique
     .replace(/<[^>]+>/g, "")                         // balises html
     .replace(/\s+/g, " ").trim()
-    .slice(0, 400);
+    .slice(0, 300);
+}
+// Extrait jusqu'à `max` définitions de la SECTION FRANÇAISE d'une page
+function frenchDefs(wikitext, max) {
+  const start = wikitext.search(/==\s*\{\{langue\|fr\}\}\s*==/);
+  if (start < 0) return [];
+  let sec = wikitext.slice(start);
+  const nxt = sec.slice(4).search(/\n==\s*\{\{langue\|/);   // début de la langue suivante
+  if (nxt >= 0) sec = sec.slice(0, nxt + 4);
+  const out = [];
+  for (const l of sec.split("\n")) {
+    if (/^#[^#*:]/.test(l)) { const d = cleanWiki(l.replace(/^#\s*/, "")); if (d) out.push(d); if (out.length >= max) break; }
+  }
+  return out;
 }
 async function fetchDefinition(mot) {
   const S = "https://fr.wiktionary.org/w/api.php";
   const H = { headers: { "user-agent": "ChasseAuxMots/1.0 (jeu de lettres)" } };
-  const s = await fetch(`${S}?action=query&list=search&srsearch=${encodeURIComponent(mot)}&srlimit=1&format=json&origin=*`, H);
+  const s = await fetch(`${S}?action=query&list=search&srsearch=${encodeURIComponent(mot)}&srlimit=6&format=json&origin=*`, H);
   const sj = await s.json();
-  const title = sj && sj.query && sj.query.search && sj.query.search[0] && sj.query.search[0].title;
-  if (!title) return "";
-  const w = await fetch(`${S}?action=parse&page=${encodeURIComponent(title)}&prop=wikitext&format=json&origin=*`, H);
-  const wj = await w.json();
-  const wt = (wj && wj.parse && wj.parse.wikitext && wj.parse.wikitext["*"]) || "";
-  const line = wt.split("\n").find((l) => /^#[^#*:]/.test(l));   // première vraie ligne de définition
-  return line ? cleanWiki(line.replace(/^#\s*/, "")) : "";
+  const titles = (((sj.query && sj.query.search) || []).map((x) => x.title));
+  if (!titles.length) return [];
+  const c = await fetch(`${S}?action=query&prop=revisions&rvslots=main&rvprop=content&format=json&origin=*&titles=${encodeURIComponent(titles.join("|"))}`, H);
+  const cj = await c.json();
+  const pages = (cj.query && cj.query.pages) || {};
+  const byTitle = {};
+  for (const k in pages) {
+    const p = pages[k];
+    const wt = p.revisions && p.revisions[0] && p.revisions[0].slots && p.revisions[0].slots.main && p.revisions[0].slots.main["*"];
+    if (p.title && wt) byTitle[p.title.toLowerCase()] = wt;
+  }
+  for (const t of titles) {           // ordre de pertinence : 1er candidat qui a une section française
+    const wt = byTitle[t.toLowerCase()];
+    if (!wt) continue;
+    const defs = frenchDefs(wt, 3);
+    if (defs.length) return defs;
+  }
+  return [];
 }
 async function getDefinition(mot) {
   try {
     const r = await scoresDb.execute({ sql: "SELECT def FROM defs WHERE mot = ?", args: [mot] });
-    if (r.rows.length) return String(r.rows[0].def || "");
+    if (r.rows.length) return JSON.parse(r.rows[0].def || "[]");
   } catch {}
-  let def = "";
-  try { def = await fetchDefinition(mot); } catch {}
-  try { await scoresDb.execute({ sql: "INSERT OR REPLACE INTO defs(mot, def, ts) VALUES(?,?,?)", args: [mot, def, Date.now()] }); } catch {}
-  return def;
+  let defs = [];
+  try { defs = await fetchDefinition(mot); } catch {}
+  try { await scoresDb.execute({ sql: "INSERT OR REPLACE INTO defs(mot, def, ts) VALUES(?,?,?)", args: [mot, JSON.stringify(defs), Date.now()] }); } catch {}
+  return defs;
 }
 
 // Écrit en base les résultats des manches terminées (manche courante incluse dès la pause)
@@ -319,7 +343,7 @@ const server = http.createServer(async (req, res) => {
       const mot = (searchParams.get("mot") || "").toLowerCase().replace(/[^a-zà-ÿ]/g, "").slice(0, 40);
       if (!mot || mot.length < 2) return send(res, 400, { error: "bad_word" });
       const def = await getDefinition(mot);
-      return send(res, 200, { mot, def });
+      return send(res, 200, { mot, defs: Array.isArray(def) ? def : [] });
     }
 
     // Classement d'une manche précise (ou la courante par défaut)
