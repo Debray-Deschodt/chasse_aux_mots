@@ -65,6 +65,12 @@ body.online #lobbyBtn{display:none}
 body:not(.online) #accountBtn{display:none}
 #authModal{z-index:60}
 #recordsModal{z-index:60}
+#settingsModal{z-index:60}
+.setrow{display:flex; align-items:center; justify-content:space-between; gap:12px; padding:14px 2px; border-bottom:1px solid var(--line); font-size:15px; color:var(--ink)}
+.switch{width:48px; height:28px; border-radius:999px; border:none; background:var(--line); position:relative; cursor:pointer; padding:0; flex:0 0 auto; transition:background .15s}
+.switch.on{background:var(--green)}
+.switch .knob{position:absolute; top:3px; left:3px; width:22px; height:22px; border-radius:50%; background:#fff; transition:left .15s}
+.switch.on .knob{left:23px}
 body:not(.online) #recordsBtn{display:none}
 .rtabs{display:flex; gap:6px; margin:6px 0 14px}
 .rtab{flex:1; padding:7px 4px; border:1px solid var(--line); border-radius:8px; background:#fff; font:inherit; font-weight:700; font-size:11.5px; text-transform:uppercase; letter-spacing:.03em; cursor:pointer; color:var(--ink)}
@@ -187,6 +193,28 @@ body:not(.online) #recordsBtn{display:none}
 .brk{font-family:var(--display); font-weight:400; color:var(--magenta); font-size:20px; margin-top:8px; text-transform:uppercase}
 
 @media (prefers-reduced-motion: reduce){ *{animation:none !important; transition:none !important} }
+
+/* ---------- Thème sombre ---------- */
+:root[data-theme="dark"]{
+  --bg:#14120f; --panel:#211d17; --board:#17130f; --line:#38312a;
+  --ink:#f1ebdf; --text:#f1ebdf; --muted:#9c9280;
+}
+[data-theme="dark"] .overlay{background:radial-gradient(120% 80% at 50% -10%, #1d1913 0%, var(--bg) 55%, #0e0c09 100%)}
+[data-theme="dark"] .icobtn,
+[data-theme="dark"] .btn.ghost,
+[data-theme="dark"] .rtab,
+[data-theme="dark"] .found .chip,
+[data-theme="dark"] .toast,
+[data-theme="dark"] .word,
+[data-theme="dark"] .lbrow,
+[data-theme="dark"] .cardmin,
+[data-theme="dark"] .card input,
+[data-theme="dark"] .overlay.minimized .card > #breakExpand{background:#2a251e}
+[data-theme="dark"] .tile{background:#2a241d; box-shadow:0 3px 0 #100d0a, 0 6px 13px -5px rgba(0,0,0,.55)}
+[data-theme="dark"] .tile.sel{background:#3a2731}
+[data-theme="dark"] .lbrow.me{background:#2f2622}
+[data-theme="dark"] .toast.burn{background:#3a2028}
+[data-theme="dark"] .timebar{background:#332c24}
 </style>
 </head>
 <body>
@@ -203,6 +231,7 @@ body:not(.online) #recordsBtn{display:none}
   <div class="seed">
     <span class="user" id="user"></span>
     <button class="icobtn" id="recordsBtn" title="Palmarès">🏆</button>
+    <button class="icobtn" id="settingsBtn" title="Paramètres">⚙️</button>
     <button class="icobtn" id="accountBtn">Se connecter</button>
     <button class="icobtn" id="lobbyBtn" title="Revenir au lobby">↩ Lobby</button>
   </div>
@@ -248,6 +277,10 @@ body:not(.online) #recordsBtn{display:none}
 <!-- Palmarès (records persistants) -->
 <div class="overlay" id="recordsModal" hidden>
   <div class="card" id="recordsCard"><!-- filled by JS --></div>
+</div>
+
+<div class="overlay" id="settingsModal" hidden>
+  <div class="card" id="settingsCard"><!-- filled by JS --></div>
 </div>
 
 <script>
@@ -421,6 +454,21 @@ const DICT_B64 = "H4sIAAAAAAACA2x923asOM/tfb8lK3HX0v8VRdrgjM56+j2wNA+u3heJpw6WZc
 
   // ---------- Sons (Web Audio, zéro fichier) ----------
   let actx;
+  // ---------- Réglages (persistés) ----------
+  const SETTINGS = { sound: true, theme: "light" };
+  try {
+    const s = JSON.parse(localStorage.getItem("cam_settings") || "{}");
+    if (typeof s.sound === "boolean") SETTINGS.sound = s.sound;
+    if (s.theme === "dark" || s.theme === "light") SETTINGS.theme = s.theme;
+  } catch {}
+  function saveSettings(){ try { localStorage.setItem("cam_settings", JSON.stringify(SETTINGS)); } catch {} }
+  function applyTheme(){
+    const dark = SETTINGS.theme === "dark";
+    document.documentElement.setAttribute("data-theme", dark ? "dark" : "light");
+    const m = document.querySelector('meta[name="theme-color"]'); if (m) m.setAttribute("content", dark ? "#14120f" : "#f4efe4");
+  }
+  applyTheme();
+
   function audio(){
     if (!actx){
       const AC = window.AudioContext || window.webkitAudioContext;
@@ -448,6 +496,7 @@ const DICT_B64 = "H4sIAAAAAAACA2x923asOM/tfb8lK3HX0v8VRdrgjM56+j2wNA+u3heJpw6WZc
   // Uniquement quand un mot est validé : note(s) douce(s) qui montent un peu avec la longueur
   const SFX_SCALE = [0, 2, 4, 7, 9, 12, 14, 16]; // penta majeure
   function sfxWord(len){
+    if (!SETTINGS.sound) return;
     const base = 330; // mi4
     const step = Math.min(Math.max(len - 3, 0), SFX_SCALE.length - 3);
     const notes = len >= 8 ? 3 : len >= 5 ? 2 : 1;
@@ -1026,6 +1075,34 @@ const DICT_B64 = "H4sIAAAAAAACA2x923asOM/tfb8lK3HX0v8VRdrgjM56+j2wNA+u3heJpw6WZc
     el("recordsClose").onclick = () => { el("recordsModal").hidden = true; };
   }
   el("recordsBtn").onclick = openRecords;
+
+  // ---------- Réglages ----------
+  function openSettings(){ el("settingsModal").hidden = false; renderSettings(); }
+  function renderSettings(){
+    el("settingsCard").innerHTML = `
+      <div class="kicker">Réglages</div>
+      <h2>Paramètres</h2>
+      <div class="setrow">
+        <span>Sons</span>
+        <button class="switch${SETTINGS.sound ? " on" : ""}" id="soundToggle" role="switch" aria-checked="${SETTINGS.sound}" aria-label="Activer les sons"><span class="knob"></span></button>
+      </div>
+      <div class="setrow">
+        <span>Thème sombre</span>
+        <button class="switch${SETTINGS.theme === "dark" ? " on" : ""}" id="themeToggle" role="switch" aria-checked="${SETTINGS.theme === "dark"}" aria-label="Thème sombre"><span class="knob"></span></button>
+      </div>
+      <button class="btn ghost" id="settingsClose" style="margin-top:18px">Fermer</button>`;
+    el("soundToggle").onclick = () => {
+      SETTINGS.sound = !SETTINGS.sound; saveSettings();
+      if (SETTINGS.sound) audio();          // débloque/relance l'audio dans le geste utilisateur
+      renderSettings();
+    };
+    el("themeToggle").onclick = () => {
+      SETTINGS.theme = SETTINGS.theme === "dark" ? "light" : "dark"; saveSettings();
+      applyTheme(); renderSettings();
+    };
+    el("settingsClose").onclick = () => { el("settingsModal").hidden = true; };
+  }
+  el("settingsBtn").onclick = openSettings;
 
   window.addEventListener("resize", drawPath);
 
