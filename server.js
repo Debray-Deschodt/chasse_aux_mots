@@ -81,8 +81,10 @@ function lemmaOf(rawLine) {
   if (links.length) return links[links.length - 1][1].trim();
   return "";
 }
+// Étiquettes régionales / de registre : ces sens passent après les sens neutres
+const MARGINAL = /\{\{\s*(suisse|belgique|québec|acadie|louisiane|afrique|familier|populaire|argot|argotique|vieilli|désuet|archaïque|vulgaire|rare|régional|dialectal)\b/i;
 // Analyse la SECTION FRANÇAISE : { real: vraies définitions, base: lemme d'une flexion }
-// Ignore les noms propres ; les sous-sections marquées "flexion" (pluriels, conjugaisons) ne sont pas de vraies définitions.
+// Ignore les noms propres ; les sous-sections "flexion" (pluriels, conjugaisons) ne sont pas de vraies définitions.
 function parseFrench(wikitext) {
   const start = wikitext.search(/==\s*\{\{langue\|fr\}\}\s*==/);
   if (start < 0) return { real: [], base: "" };
@@ -91,17 +93,19 @@ function parseFrench(wikitext) {
   if (nxt >= 0) sec = sec.slice(0, nxt + 4);
   const SKIP = /^(nom propre|prénom|nom de famille|patronyme|toponyme)/i;
   let skip = false, flexion = false;
-  const real = []; let base = "";
+  const found = []; let base = "";
   for (const l of sec.split("\n")) {
     const h = l.match(/^={3,}\s*\{\{S\|([^}]+)\}\}/);        // en-tête sous-section : {{S|type|fr|flexion}}
     if (h) { const p = h[1].split("|").map((x) => x.trim()); skip = SKIP.test(p[0]); flexion = p.includes("flexion"); continue; }
     if (!/^#[^#*:]/.test(l)) continue;
     if (skip) continue;
     if (flexion) { if (!base) base = lemmaOf(l); continue; }   // flexion -> on garde le lemme, pas la "définition"
-    const d = cleanWiki(l.replace(/^#\s*/, ""));
-    if (d && real.length < 3) real.push(d);
+    const raw = l.replace(/^#\s*/, "");
+    const d = cleanWiki(raw);
+    if (d) found.push({ d, marginal: MARGINAL.test(raw) ? 1 : 0 });
   }
-  return { real, base };
+  found.sort((a, b) => a.marginal - b.marginal);   // sens neutres d'abord (tri stable)
+  return { real: found.slice(0, 3).map((x) => x.d), base };
 }
 async function fetchDefinition(mot, depth = 0) {
   const S = "https://fr.wiktionary.org/w/api.php";
@@ -134,7 +138,7 @@ async function fetchDefinition(mot, depth = 0) {
   }
   return [];
 }
-const DEF_VERSION = 4;   // à incrémenter quand on change l'extraction => invalide le cache
+const DEF_VERSION = 5;   // à incrémenter quand on change l'extraction => invalide le cache
 async function getDefinition(mot) {
   try {
     const r = await scoresDb.execute({ sql: "SELECT def FROM defs WHERE mot = ?", args: [mot] });
