@@ -134,8 +134,9 @@ async function fetchDefinition(mot, depth = 0) {
   const H = { headers: { "user-agent": "ChasseAuxMots/1.0 (jeu de lettres)" } };
   const s = await fetch(`${S}?action=query&list=search&srsearch=${encodeURIComponent(mot)}&srlimit=6&format=json&origin=*`, H);
   const sj = await s.json();
-  const titles = (((sj.query && sj.query.search) || []).map((x) => x.title));
-  if (!titles.length) return [];
+  const titles = [mot];   // la page au titre EXACT d'abord (fiable pour les petits mots courants)
+  for (const x of (((sj.query && sj.query.search) || []).map((x) => x.title)))
+    if (!titles.some((t) => t.toLowerCase() === x.toLowerCase())) titles.push(x);
   const c = await fetch(`${S}?action=query&prop=revisions&rvslots=main&rvprop=content&format=json&origin=*&titles=${encodeURIComponent(titles.join("|"))}`, H);
   const cj = await c.json();
   const pages = (cj.query && cj.query.pages) || {};
@@ -163,7 +164,7 @@ async function fetchDefinition(mot, depth = 0) {
   }
   return [];
 }
-const DEF_VERSION = 7;   // à incrémenter quand on change l'extraction => invalide le cache
+const DEF_VERSION = 8;   // à incrémenter quand on change l'extraction => invalide le cache
 async function getDefinition(mot) {
   try {
     const r = await scoresDb.execute({ sql: "SELECT def FROM defs WHERE mot = ?", args: [mot] });
