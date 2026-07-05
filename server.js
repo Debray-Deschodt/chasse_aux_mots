@@ -60,19 +60,28 @@ function cleanWiki(s) {
     .replace(/\[\[([^\]]*)\]\]/g, "$1")              // [[a]] -> a
     .replace(/'''?/g, "")                            // gras / italique
     .replace(/<[^>]+>/g, "")                         // balises html
+    .replace(/\(\s*\)/g, "")                         // parenthèses vides (gabarits retirés)
+    .replace(/\s+([.,;:!?])/g, "$1")                 // espace avant ponctuation
     .replace(/\s+/g, " ").trim()
     .slice(0, 300);
 }
-// Extrait jusqu'à `max` définitions de la SECTION FRANÇAISE d'une page
+// Extrait jusqu'à `max` définitions de la SECTION FRANÇAISE, en ignorant les noms propres
 function frenchDefs(wikitext, max) {
   const start = wikitext.search(/==\s*\{\{langue\|fr\}\}\s*==/);
   if (start < 0) return [];
   let sec = wikitext.slice(start);
   const nxt = sec.slice(4).search(/\n==\s*\{\{langue\|/);   // début de la langue suivante
   if (nxt >= 0) sec = sec.slice(0, nxt + 4);
+  const SKIP = /^(nom propre|prénom|nom de famille|patronyme|toponyme)/i;
+  let curSkip = false;
   const out = [];
   for (const l of sec.split("\n")) {
-    if (/^#[^#*:]/.test(l)) { const d = cleanWiki(l.replace(/^#\s*/, "")); if (d) out.push(d); if (out.length >= max) break; }
+    const h = l.match(/^={3,}\s*\{\{S\|([^|}]+)/);          // en-tête de sous-section => type de mot
+    if (h) { curSkip = SKIP.test(h[1].trim()); continue; }
+    if (!curSkip && /^#[^#*:]/.test(l)) {
+      const d = cleanWiki(l.replace(/^#\s*/, ""));
+      if (d) { out.push(d); if (out.length >= max) break; }
+    }
   }
   return out;
 }
@@ -100,14 +109,18 @@ async function fetchDefinition(mot) {
   }
   return [];
 }
+const DEF_VERSION = 2;   // à incrémenter quand on change l'extraction => invalide le cache
 async function getDefinition(mot) {
   try {
     const r = await scoresDb.execute({ sql: "SELECT def FROM defs WHERE mot = ?", args: [mot] });
-    if (r.rows.length) return JSON.parse(r.rows[0].def || "[]");
+    if (r.rows.length) {
+      const c = JSON.parse(r.rows[0].def || "{}");
+      if (c && c.v === DEF_VERSION && Array.isArray(c.defs)) return c.defs;   // sinon : format/version périmé -> on ré-interroge
+    }
   } catch {}
   let defs = [];
   try { defs = await fetchDefinition(mot); } catch {}
-  try { await scoresDb.execute({ sql: "INSERT OR REPLACE INTO defs(mot, def, ts) VALUES(?,?,?)", args: [mot, JSON.stringify(defs), Date.now()] }); } catch {}
+  try { await scoresDb.execute({ sql: "INSERT OR REPLACE INTO defs(mot, def, ts) VALUES(?,?,?)", args: [mot, JSON.stringify({ v: DEF_VERSION, defs }), Date.now()] }); } catch {}
   return defs;
 }
 
