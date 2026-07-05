@@ -204,6 +204,7 @@ body:not(.online) #recordsBtn{display:none}
 :root[data-theme="dark"]{
   --bg:#14120f; --panel:#211d17; --board:#17130f; --line:#38312a;
   --ink:#f1ebdf; --text:#f1ebdf; --muted:#9c9280;
+  color-scheme:dark;
 }
 [data-theme="dark"] body{background:radial-gradient(120% 80% at 50% -10%, #1d1913 0%, var(--bg) 55%, #0e0c09 100%)}
 [data-theme="dark"] .overlay:not(.breakbg):not(.minimized){background:radial-gradient(120% 80% at 50% -10%, #1d1913 0%, var(--bg) 55%, #0e0c09 100%)}
@@ -222,6 +223,9 @@ body:not(.online) #recordsBtn{display:none}
 [data-theme="dark"] .lbrow.me{background:#2f2622}
 [data-theme="dark"] .toast.burn{background:#3a2028}
 [data-theme="dark"] .timebar{background:#332c24}
+[data-theme="dark"] .word{background:#1b1712; color:#847b6d; border-color:#2f2a23}
+[data-theme="dark"] .word.got{background:var(--green); color:#062018; border-color:transparent}
+[data-theme="dark"] .word.got i{color:#062018; opacity:.7}
 </style>
 </head>
 <body>
