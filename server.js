@@ -352,6 +352,13 @@ const ANIMOJI = {
   loutre:"🦦", hibou:"🦉", lynx:"🐈", corbeau:"🐦", faucon:"🦅", castor:"🦫", rat:"🐀",
   mite:"🦋", cormoran:"🐦", caribou:"🦌", belette:"🐭", chouette:"🦉", "lézard":"🦎",
   moineau:"🐦", "mésange":"🐦", pigeon:"🐦", escargot:"🐌", hareng:"🐟", anguille:"🐟", brochet:"🐟",
+  // Ajouts pour enrichir la collection (emojis distincts) — pas dans les pseudos, juste à collectionner
+  chat:"🐱", chien:"🐶", lion:"🦁", loup:"🐺", tigre:"🐯", vache:"🐮", lapin:"🐰", souris:"🐁",
+  cochon:"🐷", tortue:"🐢", crabe:"🦀", requin:"🦈", dauphin:"🐬", baleine:"🐋", girafe:"🦒",
+  "zèbre":"🦓", panda:"🐼", koala:"🐨", lama:"🦙", "chèvre":"🐐", mouton:"🐑", abeille:"🐝",
+  fourmi:"🐜", phoque:"🦭", crocodile:"🐊", "éléphant":"🐘", chameau:"🐫", gorille:"🦍",
+  dinde:"🦃", paon:"🦚", coq:"🐓", "araignée":"🕷️", scorpion:"🦂", moustique:"🦟", "méduse":"🪼",
+  bison:"🦬", sanglier:"🐗", kangourou:"🦘", paresseux:"🦥", hamster:"🐹", manchot:"🐧", flamant:"🦩",
 };
 const deacc = (s) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
 const NORM_ANIMOJI = {};                 // "ecureuil" -> emoji (les mots trouvés sont sans accents)
@@ -369,12 +376,33 @@ async function setAnimalHolder(animal, id, name) {
   animalHolders.set(animal, { id, name });
   try { await scoresDb.execute({ sql: "INSERT OR REPLACE INTO animals(name, holder_id, holder_name, ts) VALUES(?,?,?,?)", args: [animal, id, name, Date.now()] }); } catch {}
 }
-// Emojis (uniques) détenus par un joueur
+
+// Liste affichable (emoji + nom joli + clé normalisée)
+const ANIMAL_LIST = Object.keys(ANIMOJI).map((k) => ({ key: deacc(k), name: k, emoji: ANIMOJI[k] }));
+
+// Préférences d'affichage : chaque joueur peut masquer certains de ses emojis (pour lui ET pour les autres)
+const hiddenAnimals = new Map();         // id -> Set(noms normalisés masqués)
+async function loadAnimalPrefs() {
+  await scoresDb.execute(`CREATE TABLE IF NOT EXISTS animal_prefs(id TEXT PRIMARY KEY, hidden TEXT, ts INTEGER)`);
+  try {
+    const r = await scoresDb.execute("SELECT id, hidden FROM animal_prefs");
+    for (const row of r.rows) { try { hiddenAnimals.set(String(row.id), new Set(JSON.parse(row.hidden || "[]"))); } catch {} }
+  } catch {}
+}
+async function setHiddenAnimals(id, list) {
+  const set = new Set((Array.isArray(list) ? list : []).filter((n) => NORM_ANIMOJI[n]));   // seulement des animaux connus
+  hiddenAnimals.set(id, set);
+  try { await scoresDb.execute({ sql: "INSERT OR REPLACE INTO animal_prefs(id, hidden, ts) VALUES(?,?,?)", args: [id, JSON.stringify([...set]), Date.now()] }); } catch {}
+}
+// Emojis (uniques, non masqués) détenus par un joueur
 function emojisFor(id) {
   if (!id) return [];
+  const hidden = hiddenAnimals.get(id);
   const out = [], seen = new Set();
   for (const [animal, h] of animalHolders) {
-    if (h.id === id) { const e = NORM_ANIMOJI[animal]; if (e && !seen.has(e)) { seen.add(e); out.push(e); } }
+    if (h.id === id && !(hidden && hidden.has(animal))) {
+      const e = NORM_ANIMOJI[animal]; if (e && !seen.has(e)) { seen.add(e); out.push(e); }
+    }
   }
   return out;
 }
@@ -501,6 +529,22 @@ const server = http.createServer(async (req, res) => {
       return send(res, 200, { mot, defs: Array.isArray(def) ? def : [] });
     }
 
+    // Liste des animaux (emoji + nom) + ce que ce joueur détient / masque
+    if (req.method === "GET" && pathname === "/api/animals") {
+      const id = searchParams.get("id") || "";
+      const held = [];
+      for (const [animal, h] of animalHolders) if (h.id === id) held.push(animal);
+      return send(res, 200, { animals: ANIMAL_LIST, held, hidden: [...(hiddenAnimals.get(id) || [])] });
+    }
+    // Enregistrer les animaux masqués d'un joueur (affecte l'affichage pour tous)
+    if (req.method === "POST" && pathname === "/api/animals/hide") {
+      const body = await readBody(req);
+      const id = typeof body.id === "string" ? body.id.trim() : "";
+      if (!id) return send(res, 400, { error: "no_id" });
+      await setHiddenAnimals(id, body.hidden);
+      return send(res, 200, { ok: true, hidden: [...(hiddenAnimals.get(id) || [])] });
+    }
+
     // Classement d'une manche précise (ou la courante par défaut)
     if (req.method === "GET" && pathname === "/api/leaderboard") {
       const cur = currentRound();
@@ -531,6 +575,7 @@ try {
 try {
   await initScoresDb();
   await loadAnimals();
+  await loadAnimalPrefs();
   setInterval(() => { flushFinishedRounds().catch(() => {}); }, Number(process.env.FLUSH_MS || 10_000));
 } catch (e) {
   console.error("⚠ Base de scores :", e.message);
