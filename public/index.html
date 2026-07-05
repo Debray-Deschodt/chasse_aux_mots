@@ -315,12 +315,17 @@ const DICT_B64 = "H4sIAAAAAAACA2RdaZPjKBL9Pv9SXWbU7FpWDQLHVP/6DZH5DrwR3cXLkyMTCa
     "CCDDGG","FFVVHH","LLNNRR","SSTTEE",
     "OOUUEE","AIEOUE","RSTLNE","DPMBCG",
   ];
+  // Pool d'injection : lettres rares répétées (pour rester visibles) + toutes les autres une fois
+  // (pour que F/V/H/S… puissent dépasser le plafond des dés) => tout mot du dico devient possible.
+  const INJ_POOL = "JKQWXYZ".repeat(12) + "ABCDEFGHILMNOPRSTUV";
+  const INJ_Q = 0.0153;   // proba PAR CASE : ~mêmes proportions de lettres rares qu'avant
   function gridFromSeed(seed){
     const rand = mulberry32(hashSeed("round-" + seed));
     const dice = DICE.slice();
     for (let i = dice.length - 1; i > 0; i--){ const j = (rand()*(i+1))|0; [dice[i],dice[j]]=[dice[j],dice[i]]; }
     const g = []; let k = 0;
     for (let r=0;r<ROWS;r++){ const row=[]; for(let c=0;c<COLS;c++){ const d=dice[k++]; row.push(d[(rand()*d.length)|0]); } g.push(row); }
+    for (let r=0;r<ROWS;r++) for (let c=0;c<COLS;c++) if (rand() < INJ_Q) g[r][c] = INJ_POOL[(rand()*INJ_POOL.length)|0];
     return g;
   }
   const scoreFor = (n) => n<3?0 : n===3?1 : n===4?3 : n===5?7 : n===6?13 : n===7?21 : n===8?31 : 43;
