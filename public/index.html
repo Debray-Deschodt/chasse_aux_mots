@@ -77,7 +77,7 @@ body:not(.online) #accountBtn{display:none}
 #animalsModal{z-index:60}
 #treeModal{z-index:60}
 #treeCard{max-height:82vh; display:flex; flex-direction:column; overflow:hidden}
-.treewrap{flex:1 1 auto; min-height:120px; overflow-y:auto; overflow-x:hidden; -webkit-overflow-scrolling:touch; overscroll-behavior:contain; margin:6px 0 12px}
+.treewrap{flex:1 1 auto; min-height:min(52vh,330px); overflow-y:auto; overflow-x:hidden; -webkit-overflow-scrolling:touch; overscroll-behavior:contain; margin:6px 0 12px}
 
 /* Fil d'Ariane : la lignée dans laquelle on navigue */
 .crumbs{display:flex; align-items:center; flex-wrap:wrap; gap:3px 5px; font-size:11px; font-weight:700;
@@ -116,8 +116,9 @@ body:not(.online) #accountBtn{display:none}
   border:1px solid var(--line); border-radius:999px; padding:2px 7px; flex:0 0 auto}
 .hrow.me .tag{color:#fff; background:var(--magenta); border-color:transparent}
 .chev{color:var(--muted); font-size:11px; flex:0 0 auto}
-.refbar{display:flex; gap:8px; margin-bottom:2px}
-.refbar .btn{flex:1 1 auto; padding:12px}
+.refbar{display:flex; gap:7px; margin-bottom:2px}
+.refbar .btn{flex:1 1 0; min-width:0; padding:12px 6px; font-size:12px; letter-spacing:.02em; white-space:nowrap;
+  overflow:hidden; text-overflow:ellipsis}
 .refbar .btn.solid{background:var(--magenta); color:#fff; border:none}
 
 /* Onglets : panorama / navigation */
@@ -135,8 +136,9 @@ body:not(.online) #accountBtn{display:none}
 .disc .lnk{stroke:var(--line); stroke-width:1.4}
 .disc .nd{fill:var(--ink); stroke:var(--panel); stroke-width:1.5; cursor:grab}
 .disc .nd.me{fill:var(--magenta)}
-.disc .nd.sel{stroke:var(--magenta); stroke-width:3}
-.disc .nd.pinned{stroke:var(--green)}
+.disc .nd.sel{stroke:var(--magenta)}
+.disc .nd.lin{stroke:var(--green)}
+.disc .nd.pinned{stroke-dasharray:2 2}
 .disc .lbl{font-family:var(--ui); font-weight:700; fill:var(--muted); pointer-events:none; paint-order:stroke;
   stroke:var(--board); stroke-width:3px; stroke-linejoin:round}
 .disc .lbl.hid{display:none}
@@ -149,6 +151,14 @@ body:not(.online) #accountBtn{display:none}
 .discsel .go{font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:.07em; color:#fff; background:var(--magenta);
   border:none; border-radius:999px; padding:7px 11px; cursor:pointer}
 .discsel .hint{font-size:11px; color:var(--muted)}
+.discsel .unpin{font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:.07em; color:var(--muted);
+  background:none; border:1.5px solid var(--line); border-radius:999px; padding:6px 10px; cursor:pointer}
+.tsearch{width:100%; padding:10px 12px; border:1.5px solid var(--line); border-radius:11px; background:var(--panel);
+  color:var(--ink); font-family:var(--ui); font-weight:600; font-size:13px; margin-bottom:9px}
+.tsearch::placeholder{color:var(--muted); font-weight:500}
+.tsres{margin-bottom:6px}
+.tsres .hrow{cursor:pointer}
+.tsnone{font-size:12px; color:var(--muted); padding:2px 2px 8px}
 [data-theme="dark"] .mono{box-shadow:0 2px 0 #0f0d0a}
 [data-theme="dark"] .mono.mini{box-shadow:0 1.5px 0 #0f0d0a}
 [data-theme="dark"] .mono.founder{background:#f1ebdf; color:#14120f}
@@ -1342,7 +1352,7 @@ const DICT_B64 = "H4sIAAAAAAACA2RdaZPjKBL9Pv9SXWbU7FpWDQLHVP/6DZH5DrwR3cXLkyMTCa
     roots.sort(bySort); for (const arr of kids.values()) arr.sort(bySort);
     return { byCode, kids, roots };
   }
-  let treeNodes = [], treeIdx = null, treeFocus = "", treeMode = "all", graphStop = null;
+  let treeNodes = [], treeIdx = null, treeFocus = "", treeMode = "all", graphStop = null, treeLink = "", treeCanShare = false, treeQuery = "";
   const initialOf = (s) => (String(s).trim()[0] || "?").toUpperCase();
   function subtreeSize(code){                                    // nb de descendants (hors soi)
     const { kids } = treeIdx; const all = new Set(); const st = [...(kids.get(code) || [])];
@@ -1363,8 +1373,39 @@ const DICT_B64 = "H4sIAAAAAAACA2RdaZPjKBL9Pv9SXWbU7FpWDQLHVP/6DZH5DrwR3cXLkyMTCa
     wrap.innerHTML = tabs + (treeMode === "all" ? overviewHTML() : focusHTML());
     wrap.querySelectorAll("[data-mode]").forEach((b) => b.onclick = () => { treeMode = b.dataset.mode; renderTree(); });
     wrap.querySelectorAll("[data-go]").forEach((n) => n.onclick = () => { treeFocus = n.dataset.go; treeMode = "focus"; renderTree(); });
+    renderActions();
+    if (treeMode === "focus"){
+      const inp = el("treeSearch");
+      if (inp){
+        inp.oninput = () => { treeQuery = inp.value; renderSearch(); };
+        renderSearch();
+      }
+    }
     if (treeMode === "all") mountGraph();
   }
+  // Actions propres à chaque onglet : partager (panorama) / revenir chez soi (explorer)
+  function renderActions(){
+    const bar = el("treeActions"); if (!bar) return;
+    if (treeMode === "all"){
+      if (!treeLink){ bar.innerHTML = ""; return; }
+      bar.innerHTML = (treeCanShare ? `<button class="btn solid" id="refShare">Inviter</button>` : "")
+        + `<button class="btn ghost" id="refCopy">Copier le lien</button>`;
+      const cp = el("refCopy");
+      cp.onclick = async () => {
+        try { await navigator.clipboard.writeText(treeLink); }
+        catch { const t = document.createElement("textarea"); t.value = treeLink; document.body.appendChild(t); t.select(); try { document.execCommand("copy"); } catch {} t.remove(); }
+        cp.textContent = "Lien copié"; setTimeout(() => { cp.textContent = "Copier le lien"; }, 1500);
+      };
+      const sh = el("refShare");
+      if (sh) sh.onclick = () => { navigator.share({ title: "Chasse aux mots", text: "Viens jouer avec moi !", url: treeLink }).catch(() => {}); };
+    } else {
+      const mine = NET.code && treeIdx && treeIdx.byCode.has(NET.code);
+      bar.innerHTML = mine && treeFocus !== NET.code ? `<button class="btn ghost" id="refMine">Ma maison</button>` : "";
+      const mn = el("refMine");
+      if (mn) mn.onclick = () => { treeFocus = NET.code; renderTree(); };
+    }
+  }
+
   // ---- Panorama : graphe de force (d3, chargé à la demande) ----
   let d3Promise = null;
   function loadD3(){
@@ -1387,7 +1428,7 @@ const DICT_B64 = "H4sIAAAAAAACA2RdaZPjKBL9Pv9SXWbU7FpWDQLHVP/6DZH5DrwR3cXLkyMTCa
     for (const n of treeNodes) maxDepth = Math.max(maxDepth, pathTo(n.code).length - 1);
     return `<div class="tstats">${treeNodes.length} joueurs · ${houses} maison${houses>1?"s":""} · ${maxDepth + 1} génération${maxDepth?"s":""}</div>
       <div class="disc" id="disc" style="height:min(56vh,360px)"><div class="dload">Chargement du plan…</div></div>
-      <div class="discsel" id="discSel"><span class="hint">Touche un point pour voir qui c'est. Glisse-le pour le déplacer.</span></div>`;
+      <div class="discsel" id="discSel"><span class="hint">Touche un point pour sa lignée, double-touche pour son profil.</span></div>`;
   }
   async function mountGraph(){
     const host = el("disc"); if (!host) return;
@@ -1424,6 +1465,18 @@ const DICT_B64 = "H4sIAAAAAAACA2RdaZPjKBL9Pv9SXWbU7FpWDQLHVP/6DZH5DrwR3cXLkyMTCa
       let cur = -Math.PI/2;
       for (const r of [...roots].sort((x,y) => leaves(y) - leaves(x))){ const w = 2*Math.PI*leaves(r)/tot; assign(r, cur, cur + w, r); cur += w; }
     }
+    const lineageOf = (code) => {                              // ancêtres + soi + toute la descendance
+      const set = new Set();
+      for (const e of pathTo(code)) set.add(e.code);           // remonte jusqu'à la racine
+      const st = [code], seenL = new Set();
+      while (st.length){                                        // puis descend
+        const c = st.pop();
+        if (seenL.has(c)) continue;
+        seenL.add(c); set.add(c);
+        for (const kk of (kids.get(c) || [])) st.push(kk);
+      }
+      return set;
+    };
     const branches = [...new Set([...branchOf.values()].filter(Boolean))];
     const hueOf = (b) => branches.length ? (branches.indexOf(b) * 360 / Math.max(1, branches.length)) : 0;
     const nodes = treeNodes.map((n) => ({ id: n.code, name: n.name, depth: depthOf(n.code),
@@ -1468,10 +1521,20 @@ const DICT_B64 = "H4sIAAAAAAACA2RdaZPjKBL9Pv9SXWbU7FpWDQLHVP/6DZH5DrwR3cXLkyMTCa
     // zoom / déplacement — les libellés gardent une taille écran constante
     let k = 1, ticks = 0;
     const order = [...nodes].sort((a, b) => (b.me?1:0)-(a.me?1:0) || b.size - a.size);   // priorité d'affichage des noms
+    let lineage = new Set(), selId = "";
+    const paint = () => {
+      dot.classed("lin", (d) => lineage.has(d.id))
+         .attr("stroke-width", (d) => ((lineage.has(d.id) || d.id === selId) ? 3 : 1.5) / k);
+      link.classed("lin", (d) => lineage.has(d.source.id) && lineage.has(d.target.id))
+          .attr("stroke", (d) => (lineage.has(d.source.id) && lineage.has(d.target.id))
+            ? "var(--green)"
+            : (branchOf.get(d.target.id) ? `hsl(${hueOf(branchOf.get(d.target.id)).toFixed(0)} 45% 55%)` : "var(--line)"))
+          .attr("stroke-width", (d) => ((lineage.has(d.source.id) && lineage.has(d.target.id)) ? 2.6 : 1.4) / k);
+    };
     const relabel = () => {
       const fs = 11 / k, pad = 2 / k;
       lbl.attr("font-size", fs).attr("stroke-width", 3 / k);
-      dot.attr("stroke-width", 1.5 / k);
+      paint();
       // masque les libellés qui se chevauchent (les grosses lignées d'abord)
       const shown = [];
       const vis = new Set();
@@ -1497,7 +1560,7 @@ const DICT_B64 = "H4sIAAAAAAACA2RdaZPjKBL9Pv9SXWbU7FpWDQLHVP/6DZH5DrwR3cXLkyMTCa
     const zoom = d3.zoom().scaleExtent([0.25, 8]).on("zoom", (ev) => {
       k = ev.transform.k; scene.attr("transform", ev.transform); relabel();
     });
-    svg.call(zoom);
+    svg.call(zoom).on("dblclick.zoom", null);   // le double-clic sert à ouvrir le profil
     host.querySelectorAll("[data-z]").forEach((b) => b.onclick = (ev) => {
       ev.stopPropagation();
       if (b.dataset.z === "in") svg.transition().duration(200).call(zoom.scaleBy, 1.5);
@@ -1509,25 +1572,58 @@ const DICT_B64 = "H4sIAAAAAAACA2RdaZPjKBL9Pv9SXWbU7FpWDQLHVP/6DZH5DrwR3cXLkyMTCa
     dot.call(d3.drag()
       .on("start", (ev, d) => { if (!ev.active) sim.alphaTarget(.25).restart(); d.fx = d.x; d.fy = d.y; })
       .on("drag", (ev, d) => { d.fx = ev.x; d.fy = ev.y; })
-      .on("end", (ev, d) => { if (!ev.active) sim.alphaTarget(0); d3.select(ev.sourceEvent.target).classed("pinned", true); }));
-    dot.on("dblclick", (ev, d) => { d.fx = d.fy = null; d3.select(ev.currentTarget).classed("pinned", false); sim.alphaTarget(.2).restart(); });
+      .on("end", (ev, d) => { if (!ev.active) sim.alphaTarget(0); d.pinned = true; d3.select(ev.sourceEvent.target).classed("pinned", true); }));
+    dot.on("dblclick", (ev, d) => {              // double-clic : ouvre son profil dans Explorer
+      ev.stopPropagation(); ev.preventDefault();
+      treeFocus = d.id; treeMode = "focus"; treeQuery = ""; renderTree();
+    });
 
     // sélection
     const sel = el("discSel");
     dot.on("click", (ev, d) => {
       ev.stopPropagation();
       dot.classed("sel", false); d3.select(ev.currentTarget).classed("sel", true);
+      selId = d.id; lineage = lineageOf(d.id); paint();                       // toute sa lignée passe en vert
       sel.innerHTML = `<span class="mono mini${d.me ? " me":""}">${escT(initialOf(d.name))}</span>`
         + `<span class="nm">${escT(d.name)}${d.size ? ` · ${d.size} dans sa lignée` : ""}</span>`
-        + (d.size ? `<button class="go" data-go2="${d.id}">Explorer</button>` : "");
+        + (d.pinned ? `<button class="unpin" data-unpin="1">Libérer</button>` : "")
+        + `<button class="go" data-go2="${d.id}">Explorer</button>`;
       const g = sel.querySelector("[data-go2]");
-      if (g) g.onclick = () => { treeFocus = d.id; treeMode = "focus"; renderTree(); };
+      if (g) g.onclick = () => { treeFocus = d.id; treeMode = "focus"; treeQuery = ""; renderTree(); };
+      const u = sel.querySelector("[data-unpin]");
+      if (u) u.onclick = () => { d.fx = d.fy = null; d.pinned = false;
+        d3.select(ev.currentTarget).classed("pinned", false); u.remove(); sim.alphaTarget(.2).restart(); setTimeout(() => sim.alphaTarget(0), 600); };
     });
-    svg.on("click", () => { dot.classed("sel", false); sel.innerHTML = `<span class="hint">Touche un point pour voir qui c'est. Glisse-le pour le déplacer.</span>`; });
+    svg.on("click", () => {
+      dot.classed("sel", false); selId = ""; lineage = new Set(); paint();
+      sel.innerHTML = `<span class="hint">Touche un point pour sa lignée, double-touche pour son profil.</span>`;
+    });
     // on arrête la simulation quand la fenêtre se ferme
     graphStop = () => sim.stop();
   }
 
+
+  // Recherche d'un joueur (sans accents, insensible à la casse)
+  function renderSearch(){
+    const box = el("tsRes"); if (!box || !treeIdx) return;
+    const q = treeQuery.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+    if (!q){ box.innerHTML = ""; return; }
+    const hits = treeNodes
+      .filter((n) => n.name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().includes(q))
+      .sort((a, b) => subtreeSize(b.code) - subtreeSize(a.code))
+      .slice(0, 8);
+    if (!hits.length){ box.innerHTML = `<div class="tsnone">Aucun joueur à ce nom.</div>`; return; }
+    box.innerHTML = hits.map((n) => {
+      const me = NET.code === n.code, sz = subtreeSize(n.code);
+      const parent = n.parent && treeIdx.byCode.get(n.parent);
+      return `<div class="hrow${me ? " me":""}" data-go="${n.code}">
+        <span class="mono${me ? " me":""}">${escT(initialOf(n.name))}</span>
+        <span class="nm">${escT(n.name)}${parent ? ` · invité par ${escT(parent.name)}` : ""}</span>
+        ${sz ? `<span class="tag">${sz}</span>` : ""}<span class="chev">▶</span>
+      </div>`;
+    }).join("");
+    box.querySelectorAll("[data-go]").forEach((n) => n.onclick = () => { treeFocus = n.dataset.go; treeQuery = ""; renderTree(); });
+  }
 
   // Navigation : un niveau à la fois
   function focusHTML(){
@@ -1563,7 +1659,9 @@ const DICT_B64 = "H4sIAAAAAAACA2RdaZPjKBL9Pv9SXWbU7FpWDQLHVP/6DZH5DrwR3cXLkyMTCa
         ${n ? `<span class="stack">${minis}</span><span class="tag">${n}</span><span class="chev">▶</span>` : ""}
       </div>`;
     }).join("");
-    return `<div class="crumbs">${crumbs}</div>${head}`
+    return `<input class="tsearch" id="treeSearch" type="search" placeholder="Rechercher un joueur" value="${escT(treeQuery)}">`
+      + `<div class="tsres" id="tsRes"></div>`
+      + `<div class="crumbs">${crumbs}</div>${head}`
       + (rows || `<div class="anhint">Personne dans cette maison. Invite quelqu'un pour la peupler.</div>`);
   }
   async function openTree(){
@@ -1575,19 +1673,10 @@ const DICT_B64 = "H4sIAAAAAAACA2RdaZPjKBL9Pv9SXWbU7FpWDQLHVP/6DZH5DrwR3cXLkyMTCa
       <h2>Les Maisons</h2>
       <div class="anhint">Entre dans une maison pour voir qui l'habite. Chaque joueur que tu invites fonde la sienne.</div>
       <div class="treewrap" id="treeView"><div class="anhint">Chargement…</div></div>
-      ${link ? `<div class="refbar">${canShare ? `<button class="btn solid" id="refShare">Inviter</button>` : ""}<button class="btn ghost" id="refCopy">Copier le lien</button>${NET.code ? `<button class="btn ghost" id="refMine">Ma maison</button>` : ""}</div>` : ""}
+      <div class="refbar" id="treeActions"></div>
       <button class="btn ghost" id="treeClose" style="margin-top:8px">Fermer</button>`;
     el("treeClose").onclick = () => { el("treeModal").hidden = true; if (graphStop) { graphStop(); graphStop = null; } };
-    const cp = el("refCopy");
-    if (cp) cp.onclick = async () => {
-      try { await navigator.clipboard.writeText(link); }
-      catch { const t = document.createElement("textarea"); t.value = link; document.body.appendChild(t); t.select(); try { document.execCommand("copy"); } catch {} t.remove(); }
-      cp.textContent = "Lien copié"; setTimeout(() => { cp.textContent = "Copier le lien"; }, 1500);
-    };
-    const sh = el("refShare");
-    if (sh) sh.onclick = () => { navigator.share({ title: "Chasse aux mots", text: "Viens jouer avec moi !", url: link }).catch(() => {}); };
-    const mn = el("refMine");
-    if (mn) mn.onclick = () => { treeFocus = NET.code || ""; treeMode = "focus"; renderTree(); };
+    treeLink = link; treeCanShare = canShare;
 
     try { treeNodes = (await apiGet("/api/referrals")).nodes || []; } catch { treeNodes = []; }
     treeIdx = buildHouses(treeNodes);
