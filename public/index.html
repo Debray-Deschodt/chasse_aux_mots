@@ -78,22 +78,76 @@ body:not(.online) #accountBtn{display:none}
 #treeModal{z-index:60}
 #treeCard{max-height:82vh; display:flex; flex-direction:column; overflow:hidden}
 .treewrap{flex:1 1 auto; min-height:120px; overflow-y:auto; overflow-x:hidden; -webkit-overflow-scrolling:touch; overscroll-behavior:contain; margin:6px 0 12px}
-.house{border:1px solid var(--line); border-radius:12px; margin-bottom:10px; overflow:hidden; background:var(--panel)}
-.house.mine{border-color:var(--magenta)}
-.hhead{display:flex; align-items:center; gap:9px; padding:10px 12px; cursor:pointer; background:var(--board)}
-.hhead .cara{font-size:11px; color:var(--muted); width:12px; flex:0 0 auto; transition:transform .15s}
-.house.open .hhead .cara{transform:rotate(90deg)}
-.hhead .hname{flex:1 1 auto; font-weight:800; color:var(--ink); font-size:14px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
-.hhead .hcount{font-size:11px; font-weight:700; color:var(--muted); flex:0 0 auto}
-.hbody{display:none; padding:6px 0 8px}
-.house.open .hbody{display:block}
-.hrow{display:flex; align-items:center; gap:8px; padding:5px 12px; font-size:13px; color:var(--ink)}
-.hrow .dash{color:var(--muted); flex:0 0 auto}
-.hrow .nm{overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+
+/* Fil d'Ariane : la lignée dans laquelle on navigue */
+.crumbs{display:flex; align-items:center; flex-wrap:wrap; gap:3px 5px; font-size:11px; font-weight:700;
+  text-transform:uppercase; letter-spacing:.07em; margin:4px 0 10px}
+.crumbs .cb{color:var(--magenta); cursor:pointer; border:none; background:none; padding:0; font:inherit; letter-spacing:inherit}
+.crumbs .sep{color:var(--muted)}
+.crumbs .cur{color:var(--muted)}
+
+/* Le foyer où l'on se trouve */
+.focus{display:flex; align-items:center; gap:11px; padding:12px 13px; border-radius:14px;
+  background:var(--board); border:1.5px solid var(--line); margin-bottom:12px}
+.focus.mine{border-color:var(--magenta)}
+.focus .fname{flex:1 1 auto; min-width:0; font-family:var(--display); font-weight:400; font-size:21px;
+  text-transform:uppercase; color:var(--ink); overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.focus .fsub{font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.1em; color:var(--muted); flex:0 0 auto}
+
+/* Tuile-monogramme : l'initiale, comme une lettre du plateau */
+.mono{width:27px; height:27px; flex:0 0 auto; border-radius:8px; display:grid; place-items:center;
+  font-family:var(--display); font-weight:400; font-size:15px; line-height:1;
+  background:var(--panel); color:var(--ink); box-shadow:0 2px 0 #ded5c2}
+.mono.founder{background:var(--tilebg); color:var(--tiletext); box-shadow:0 2px 0 rgba(25,22,19,.35); transform:rotate(-3deg)}
+.mono.me{background:var(--magenta); color:#fff; box-shadow:0 2px 0 rgba(255,31,107,.35)}
+.mono.mini{width:19px; height:19px; border-radius:6px; font-size:11px; box-shadow:0 1.5px 0 #ded5c2}
+
+/* Habitants du foyer courant */
+.hrow{display:flex; align-items:center; gap:10px; padding:10px 11px; border:1.5px solid var(--line);
+  border-radius:12px; background:var(--panel); margin-bottom:7px}
+.hrow.click{cursor:pointer}
+.hrow.me{border-color:var(--magenta)}
+.hrow .nm{flex:1 1 auto; min-width:0; font-size:14px; font-weight:600; color:var(--ink); overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
 .hrow.me .nm{font-weight:800; color:var(--magenta)}
-.hrow .kidn{font-size:10px; color:var(--muted); flex:0 0 auto}
-.refbar{display:flex; gap:8px; margin-bottom:8px}
-.refbar .btn{flex:1 1 auto}
+.stack{display:flex; gap:-4px; flex:0 0 auto}
+.stack .mono.mini{margin-left:-6px}
+.stack .mono.mini:first-child{margin-left:0}
+.tag{font-size:9px; font-weight:800; text-transform:uppercase; letter-spacing:.09em; color:var(--muted);
+  border:1px solid var(--line); border-radius:999px; padding:2px 7px; flex:0 0 auto}
+.hrow.me .tag{color:#fff; background:var(--magenta); border-color:transparent}
+.chev{color:var(--muted); font-size:11px; flex:0 0 auto}
+.refbar{display:flex; gap:8px; margin-bottom:2px}
+.refbar .btn{flex:1 1 auto; padding:12px}
+.refbar .btn.solid{background:var(--magenta); color:#fff; border:none}
+
+/* Onglets : panorama / navigation */
+.ttabs{display:flex; gap:6px; margin:6px 0 8px}
+.ttab{flex:1 1 auto; font-family:var(--ui); font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.07em;
+  padding:9px 6px; border-radius:9px; border:1.5px solid var(--line); background:var(--panel); color:var(--muted); cursor:pointer}
+.ttab.on{background:var(--tilebg); color:var(--tiletext); border-color:transparent}
+.tstats{font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.09em; color:var(--muted); margin:0 0 9px}
+
+/* Panorama : graphe radial, générations en anneaux */
+.disc{position:relative; border:1.5px solid var(--line); border-radius:14px; background:var(--board); overflow:hidden; touch-action:none}
+.disc svg{display:block; width:100%; height:100%}
+.disc .ring{fill:none; stroke:var(--line); stroke-width:1; stroke-dasharray:2 5}
+.disc .lnk{fill:none; stroke:var(--line); stroke-width:1.4}
+.disc .nd{fill:var(--ink); stroke:var(--panel); stroke-width:1.5; cursor:pointer}
+.disc .nd.me{fill:var(--magenta)}
+.disc .nd.sel{stroke:var(--magenta); stroke-width:2.5}
+.disc .lbl{font-family:var(--ui); font-weight:700; fill:var(--muted); pointer-events:none}
+.disc.far .lbl:not(.major){display:none}
+.zoomer{position:absolute; right:8px; bottom:8px; display:flex; gap:5px}
+.zoomer button{width:30px; height:30px; border-radius:8px; border:1.5px solid var(--line); background:var(--panel);
+  color:var(--ink); font-family:var(--ui); font-weight:800; font-size:14px; cursor:pointer; padding:0}
+.discsel{display:flex; align-items:center; gap:9px; margin-top:9px; min-height:31px}
+.discsel .nm{flex:1 1 auto; min-width:0; font-size:13px; font-weight:700; color:var(--ink); overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.discsel .go{font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:.07em; color:#fff; background:var(--magenta);
+  border:none; border-radius:999px; padding:7px 11px; cursor:pointer}
+.discsel .hint{font-size:11px; color:var(--muted)}
+[data-theme="dark"] .mono{box-shadow:0 2px 0 #0f0d0a}
+[data-theme="dark"] .mono.mini{box-shadow:0 1.5px 0 #0f0d0a}
+[data-theme="dark"] .mono.founder{background:#f1ebdf; color:#14120f}
 #animalsCard{max-height:82vh; display:flex; flex-direction:column; overflow:hidden}
 .anhint{font-size:13px; color:var(--muted); margin:2px 0 8px}
 .animalist{flex:1 1 auto; min-height:80px; overflow:auto; -webkit-overflow-scrolling:touch; overscroll-behavior:contain; margin-bottom:14px}
@@ -1284,64 +1338,237 @@ const DICT_B64 = "H4sIAAAAAAACA2RdaZPjKBL9Pv9SXWbU7FpWDQLHVP/6DZH5DrwR3cXLkyMTCa
     roots.sort(bySort); for (const arr of kids.values()) arr.sort(bySort);
     return { byCode, kids, roots };
   }
-  function housesHTML(nodes){
-    if (!nodes.length) return `<div class="anhint">Personne pour l'instant.</div>`;
-    const { byCode, kids, roots } = buildHouses(nodes);
-    const seen = new Set();
-    const rows = (code, depth) => {                       // liste à plat, indentée par profondeur
-      if (seen.has(code)) return "";
-      seen.add(code);
-      const n = byCode.get(code); if (!n) return "";
-      const ch = kids.get(code) || [];
-      const me = NET.code && code === NET.code;
-      const line = depth === 0 ? "" : `<div class="hrow${me ? " me":""}" style="padding-left:${12 + depth*16}px">`
-        + `<span class="dash">└</span><span class="nm">${escT(n.name)}</span>`
-        + (ch.length ? `<span class="kidn">+${ch.length}</span>` : "") + `</div>`;
-      return line + ch.map((c) => rows(c, depth + 1)).join("");
+  let treeNodes = [], treeIdx = null, treeFocus = "", treeMode = "all";
+  const initialOf = (s) => (String(s).trim()[0] || "?").toUpperCase();
+  function subtreeSize(code){                                    // nb de descendants (hors soi)
+    const { kids } = treeIdx; const all = new Set(); const st = [...(kids.get(code) || [])];
+    while (st.length){ const c = st.pop(); if (all.has(c)) continue; all.add(c); for (const k of (kids.get(c) || [])) st.push(k); }
+    return all.size;
+  }
+  function pathTo(code){                                         // lignée : de la racine jusqu'à `code`
+    const { byCode } = treeIdx; const path = [];
+    for (let c = code, n = 0; c && n < 200; n++){ const e = byCode.get(c); if (!e) break; path.unshift(e); c = e.parent; }
+    return path;
+  }
+  function renderTree(){
+    const wrap = el("treeView"); if (!wrap || !treeIdx) return;
+    const { byCode, kids, roots } = treeIdx;
+    const tabs = `<div class="ttabs">
+      <button class="ttab${treeMode === "all" ? " on":""}" data-mode="all">Vue d'ensemble</button>
+      <button class="ttab${treeMode === "focus" ? " on":""}" data-mode="focus">Explorer</button></div>`;
+    wrap.innerHTML = tabs + (treeMode === "all" ? overviewHTML() : focusHTML());
+    wrap.querySelectorAll("[data-mode]").forEach((b) => b.onclick = () => { treeMode = b.dataset.mode; renderTree(); });
+    wrap.querySelectorAll("[data-go]").forEach((n) => n.onclick = () => { treeFocus = n.dataset.go; treeMode = "focus"; renderTree(); });
+    if (treeMode === "all") setupDisc();
+  }
+  // Disposition radiale : angle proportionnel au nombre de feuilles, rayon = génération
+  function radialLayout(){
+    const { kids, roots } = treeIdx;
+    const leafMemo = new Map(), guard = new Set();
+    const leaves = (c) => {
+      if (leafMemo.has(c)) return leafMemo.get(c);
+      if (guard.has(c)) return 1; guard.add(c);
+      const ch = kids.get(c) || [];
+      const n = ch.length ? ch.reduce((s, k) => s + leaves(k), 0) : 1;
+      leafMemo.set(c, n); return n;
     };
-    const count = (code, guard) => {                      // taille de la maison
-      if (guard.has(code)) return 0; guard.add(code);
-      return 1 + (kids.get(code) || []).reduce((s, c) => s + count(c, guard), 0);
+    const pos = new Map(), seen = new Set();
+    const place = (code, a0, a1, depth) => {
+      if (seen.has(code)) return; seen.add(code);
+      pos.set(code, { a: (a0 + a1) / 2, depth });
+      const ch = [...(kids.get(code) || [])].sort((x, y) => leaves(y) - leaves(x));
+      const span = a1 - a0, tot = ch.reduce((s, k) => s + leaves(k), 0) || 1;
+      let cur = a0;
+      for (const k of ch){ const w = span * leaves(k) / tot; place(k, cur, cur + w, depth + 1); cur += w; }
     };
-    const inHouse = (code) => { const g = new Set(); const stack=[code]; const all=new Set();
-      while (stack.length){ const c = stack.pop(); if (g.has(c)) continue; g.add(c); all.add(c); for (const k of (kids.get(c)||[])) stack.push(k); }
-      return all; };
-    const houses = roots.map((r) => ({ r, size: count(r, new Set()), mine: NET.code && inHouse(r).has(NET.code) }));
-    houses.sort((a,b) => (b.mine?1:0) - (a.mine?1:0) || b.size - a.size);   // ma maison d'abord, puis les plus grandes
-    return houses.map(({ r, size, mine }) => {
-      const n = byCode.get(r);
-      const body = rows(r, 0);
-      const open = mine || houses.length <= 3;                              // ouvre ma maison par défaut
-      return `<div class="house${mine ? " mine":""}${open ? " open":""}">
-        <div class="hhead"><span class="cara">▶</span><span class="hname">🏠 ${escT(n ? n.name : "?")}</span><span class="hcount">${size} joueur${size>1?"s":""}</span></div>
-        <div class="hbody">${body || `<div class="hrow" style="padding-left:12px"><span class="nm" style="color:var(--muted)">Personne pour l'instant.</span></div>`}</div>
+    if (roots.length === 1){ place(roots[0], -Math.PI/2, Math.PI*1.5, 0); }      // racine unique -> au centre
+    else {
+      const tot = roots.reduce((s, r) => s + leaves(r), 0) || 1;
+      let cur = -Math.PI / 2;
+      for (const r of [...roots].sort((x,y) => leaves(y) - leaves(x))){
+        const w = 2 * Math.PI * leaves(r) / tot; place(r, cur, cur + w, 1); cur += w;
+      }
+    }
+    // Écart des anneaux : assez large pour que les voisins d'un même anneau ne se touchent pas
+    const byDepth = new Map();
+    for (const [, p] of pos){ if (!byDepth.has(p.depth)) byDepth.set(p.depth, []); byDepth.get(p.depth).push(p.a); }
+    let step = 78;
+    for (const [d, angles] of byDepth){
+      if (d < 1 || angles.length < 2) continue;
+      angles.sort((x, y) => x - y);
+      let gap = Infinity;
+      for (let i = 1; i < angles.length; i++) gap = Math.min(gap, angles[i] - angles[i-1]);
+      if (gap > 0 && isFinite(gap)) step = Math.max(step, 22 / (d * gap));       // 22px minimum entre voisins
+    }
+    step = Math.min(step, 420);
+    const XY = new Map();
+    for (const [c, p] of pos) XY.set(c, { x: Math.cos(p.a) * p.depth * step, y: Math.sin(p.a) * p.depth * step, depth: p.depth, step });
+    return XY;
+  }
+  // Panorama : disque zoomable
+  function overviewHTML(){
+    if (!treeNodes.length) return `<div class="anhint">Aucun joueur pour l'instant.</div>`;
+    const { byCode, kids } = treeIdx;
+    const XY = radialLayout();
+    let maxR = 60, maxDepth = 0, step = 78;
+    for (const p of XY.values()){ maxR = Math.max(maxR, Math.hypot(p.x, p.y)); maxDepth = Math.max(maxDepth, p.depth); step = p.step || step; }
+    const PAD = Math.max(30, step * 0.35), S = maxR + PAD;
+    let rings = "";
+    for (let d = 1; d <= maxDepth; d++) rings += `<circle class="ring" cx="0" cy="0" r="${(d * step).toFixed(1)}"/>`;
+    let links = "";
+    for (const [code, ch] of kids){
+      const a = XY.get(code); if (!a) continue;
+      for (const c of ch){ const b = XY.get(c); if (!b) continue; links += `<line class="lnk" x1="${a.x.toFixed(1)}" y1="${a.y.toFixed(1)}" x2="${b.x.toFixed(1)}" y2="${b.y.toFixed(1)}"/>`; }
+    }
+    let dots = "", labels = "";
+    const base = Math.max(4.5, step * 0.075), fs = Math.max(10, step * 0.135);
+    for (const [code, p] of XY){
+      const e = byCode.get(code); if (!e) continue;
+      const n = subtreeSize(code), me = NET.code === code;
+      const rad = base * (1 + Math.min(1.1, Math.sqrt(n) / 6));
+      dots += `<circle class="nd${me ? " me":""}" data-node="${code}" cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="${rad.toFixed(1)}"/>`;
+      const major = me || p.depth === 0 || n >= 3;
+      const nm = e.name.length > 13 ? e.name.slice(0, 12) + "…" : e.name;
+      labels += `<text class="lbl${major ? " major":""}" x="${p.x.toFixed(1)}" y="${(p.y - rad - fs*0.45).toFixed(1)}" text-anchor="middle" font-size="${fs.toFixed(1)}">${escT(nm)}</text>`;
+    }
+    const houses = treeNodes.filter((n) => (kids.get(n.code) || []).length).length;
+    return `<div class="tstats">${treeNodes.length} joueurs · ${houses} maison${houses>1?"s":""} · ${maxDepth + 1} génération${maxDepth?"s":""}</div>
+      <div class="disc" id="disc" style="height:min(52vh,340px)">
+        <svg id="discSvg" viewBox="${-S} ${-S} ${2*S} ${2*S}">
+          <g>${rings}${links}${dots}${labels}</g>
+        </svg>
+        <div class="zoomer"><button data-z="out">−</button><button data-z="in">+</button><button data-z="fit">⤢</button></div>
+      </div>
+      <div class="discsel" id="discSel"><span class="hint">Touche un point pour voir qui c'est.</span></div>`;
+  }
+  // Zoom / déplacement du disque (viewBox), sélection d'un point
+  function setupDisc(){
+    const host = el("disc"), svg = el("discSvg"), sel = el("discSel");
+    if (!host || !svg) return;
+    const vb0 = svg.getAttribute("viewBox").split(" ").map(Number);
+    let vb = vb0.slice();
+    const apply = () => {
+      svg.setAttribute("viewBox", vb.join(" "));
+      host.classList.toggle("far", vb[2] > vb0[2] * 0.75);      // libellés secondaires seulement en zoom
+    };
+    const zoom = (f, cx, cy) => {
+      const nw = Math.min(vb0[2] * 2.5, Math.max(vb0[2] * 0.12, vb[2] * f));
+      const k = nw / vb[2];
+      vb = [cx - (cx - vb[0]) * k, cy - (cy - vb[1]) * k, nw, nw];
+      apply();
+    };
+    const toSvg = (px, py) => { const r = host.getBoundingClientRect();
+      return [vb[0] + (px - r.left) / r.width * vb[2], vb[1] + (py - r.top) / r.height * vb[3]]; };
+    host.querySelectorAll("[data-z]").forEach((b) => b.onclick = (ev) => {
+      ev.stopPropagation();
+      const c = [vb[0] + vb[2]/2, vb[1] + vb[3]/2];
+      if (b.dataset.z === "in") zoom(0.7, c[0], c[1]);
+      else if (b.dataset.z === "out") zoom(1.4, c[0], c[1]);
+      else { vb = vb0.slice(); apply(); }
+    });
+    host.addEventListener("wheel", (ev) => { ev.preventDefault();
+      const [x, y] = toSvg(ev.clientX, ev.clientY); zoom(ev.deltaY > 0 ? 1.15 : 0.87, x, y); }, { passive:false });
+    // déplacement + pincement
+    const pts = new Map(); let last = null, moved = false;
+    host.addEventListener("pointerdown", (ev) => { host.setPointerCapture(ev.pointerId); pts.set(ev.pointerId, ev); moved = false; last = null; });
+    host.addEventListener("pointermove", (ev) => {
+      if (!pts.has(ev.pointerId)) return;
+      const prev = pts.get(ev.pointerId); pts.set(ev.pointerId, ev);
+      if (pts.size === 1){
+        const r = host.getBoundingClientRect();
+        const dx = (ev.clientX - prev.clientX) / r.width * vb[2], dy = (ev.clientY - prev.clientY) / r.height * vb[3];
+        if (Math.abs(ev.clientX - prev.clientX) + Math.abs(ev.clientY - prev.clientY) > 2) moved = true;
+        vb[0] -= dx; vb[1] -= dy; apply();
+      } else if (pts.size === 2){
+        const [a, b] = [...pts.values()];
+        const d = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+        if (last){ const [x, y] = toSvg((a.clientX + b.clientX)/2, (a.clientY + b.clientY)/2); zoom(last / d, x, y); }
+        last = d; moved = true;
+      }
+    });
+    const up = (ev) => { pts.delete(ev.pointerId); if (pts.size < 2) last = null; };
+    host.addEventListener("pointerup", up); host.addEventListener("pointercancel", up);
+    // sélection d'un point
+    svg.addEventListener("click", (ev) => {
+      if (moved) return;
+      const t = ev.target.closest("[data-node]");
+      svg.querySelectorAll(".nd.sel").forEach((n) => n.classList.remove("sel"));
+      if (!t){ sel.innerHTML = `<span class="hint">Touche un point pour voir qui c'est.</span>`; return; }
+      t.classList.add("sel");
+      const code = t.dataset.node, e = treeIdx.byCode.get(code), n = subtreeSize(code);
+      sel.innerHTML = `<span class="mono mini${NET.code === code ? " me":""}">${escT(initialOf(e.name))}</span>`
+        + `<span class="nm">${escT(e.name)}${n ? ` · ${n} dans sa lignée` : ""}</span>`
+        + (n ? `<button class="go" data-go2="${code}">Explorer</button>` : "");
+      const g = sel.querySelector("[data-go2]");
+      if (g) g.onclick = () => { treeFocus = code; treeMode = "focus"; renderTree(); };
+    });
+    apply();
+  }
+  // Navigation : un niveau à la fois
+  function focusHTML(){
+    const { byCode, kids, roots } = treeIdx;
+    const focusEntry = treeFocus ? byCode.get(treeFocus) : null;
+    const children = focusEntry ? (kids.get(treeFocus) || []) : roots;
+    const path = focusEntry ? pathTo(treeFocus) : [];
+    let crumbs = `<button class="cb" data-go="">Communauté</button>`;
+    path.forEach((e, i) => {
+      const last = i === path.length - 1;
+      crumbs += `<span class="sep">›</span>` + (last
+        ? `<span class="cur">${escT(e.name)}</span>`
+        : `<button class="cb" data-go="${e.code}">${escT(e.name)}</button>`);
+    });
+    let head = "";
+    if (focusEntry){
+      const me = NET.code === treeFocus, tot = subtreeSize(treeFocus);
+      head = `<div class="focus${me ? " mine":""}">
+        <span class="mono founder${me ? " me":""}">${escT(initialOf(focusEntry.name))}</span>
+        <span class="fname">${escT(focusEntry.name)}</span>
+        <span class="fsub">${tot} dans sa lignée</span>
+      </div>`;
+    }
+    const nameOf = (c) => (byCode.get(c) || {}).name || "";
+    const rows = [...children].sort((a,b) => subtreeSize(b) - subtreeSize(a) || nameOf(a).localeCompare(nameOf(b), "fr")).map((c) => {
+      const e = byCode.get(c); if (!e) return "";
+      const me = NET.code === c, n = subtreeSize(c), ch = kids.get(c) || [];
+      const minis = ch.slice(0, 4).map((k) => `<span class="mono mini">${escT(initialOf(nameOf(k)))}</span>`).join("");
+      return `<div class="hrow${me ? " me":""}${n ? " click":""}" ${n ? `data-go="${c}"` : ""}>
+        <span class="mono${me ? " me":""}">${escT(initialOf(e.name))}</span>
+        <span class="nm">${escT(e.name)}</span>
+        ${me ? `<span class="tag">toi</span>` : ""}
+        ${n ? `<span class="stack">${minis}</span><span class="tag">${n}</span><span class="chev">▶</span>` : ""}
       </div>`;
     }).join("");
+    return `<div class="crumbs">${crumbs}</div>${head}`
+      + (rows || `<div class="anhint">Personne dans cette maison. Invite quelqu'un pour la peupler.</div>`);
   }
   async function openTree(){
     el("treeModal").hidden = false;
-    el("treeCard").innerHTML = `<div class="kicker">Communauté</div><h2>Les Maisons</h2><div class="anhint">Chargement…</div>`;
-    let nodes = [];
-    try { nodes = (await apiGet("/api/referrals")).nodes || []; } catch {}
     const link = NET.code ? location.origin + location.pathname + "?p=" + NET.code : "";
     const canShare = !!(navigator.share && link);
     el("treeCard").innerHTML = `
       <div class="kicker">Communauté</div>
       <h2>Les Maisons</h2>
-      <div class="anhint">Invite un ami avec ton lien : il rejoindra ta maison.</div>
-      ${link ? `<div class="refbar"><button class="btn ghost" id="refCopy">Copier mon lien</button>${canShare ? `<button class="btn ghost" id="refShare">Partager</button>` : ""}</div>` : ""}
-      <div class="treewrap">${housesHTML(nodes)}</div>
-      <button class="btn ghost" id="treeClose">Fermer</button>`;
+      <div class="anhint">Entre dans une maison pour voir qui l'habite. Chaque joueur que tu invites fonde la sienne.</div>
+      <div class="treewrap" id="treeView"><div class="anhint">Chargement…</div></div>
+      ${link ? `<div class="refbar">${canShare ? `<button class="btn solid" id="refShare">Inviter</button>` : ""}<button class="btn ghost" id="refCopy">Copier le lien</button>${NET.code ? `<button class="btn ghost" id="refMine">Ma maison</button>` : ""}</div>` : ""}
+      <button class="btn ghost" id="treeClose" style="margin-top:8px">Fermer</button>`;
     el("treeClose").onclick = () => { el("treeModal").hidden = true; };
-    el("treeCard").querySelectorAll(".hhead").forEach((h) => h.onclick = () => h.parentElement.classList.toggle("open"));
     const cp = el("refCopy");
     if (cp) cp.onclick = async () => {
       try { await navigator.clipboard.writeText(link); }
       catch { const t = document.createElement("textarea"); t.value = link; document.body.appendChild(t); t.select(); try { document.execCommand("copy"); } catch {} t.remove(); }
-      cp.textContent = "Copié !"; setTimeout(() => { cp.textContent = "Copier mon lien"; }, 1500);
+      cp.textContent = "Lien copié"; setTimeout(() => { cp.textContent = "Copier le lien"; }, 1500);
     };
     const sh = el("refShare");
     if (sh) sh.onclick = () => { navigator.share({ title: "Chasse aux mots", text: "Viens jouer avec moi !", url: link }).catch(() => {}); };
+    const mn = el("refMine");
+    if (mn) mn.onclick = () => { treeFocus = NET.code || ""; treeMode = "focus"; renderTree(); };
+
+    try { treeNodes = (await apiGet("/api/referrals")).nodes || []; } catch { treeNodes = []; }
+    treeIdx = buildHouses(treeNodes);
+    treeFocus = NET.code && treeIdx.byCode.has(NET.code) ? NET.code : "";
+    treeMode = "all";                                  // on ouvre sur la vue d'ensemble
+    renderTree();
   }
   el("treeBtn").onclick = openTree;
 
