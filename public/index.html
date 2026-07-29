@@ -75,6 +75,17 @@ body:not(.online) #accountBtn{display:none}
 #recordsModal{z-index:60}
 #settingsModal{z-index:60}
 #animalsModal{z-index:60}
+#treeModal{z-index:60}
+#treeCard{max-height:82vh; display:flex; flex-direction:column; overflow:hidden}
+.treewrap{flex:1 1 auto; min-height:120px; overflow:auto; -webkit-overflow-scrolling:touch; overscroll-behavior:contain; margin:6px 0 12px; border:1px solid var(--line); border-radius:12px; background:var(--board)}
+.treewrap svg{display:block}
+.tnode rect{fill:var(--panel); stroke:var(--line)}
+.tnode.me rect{fill:var(--magenta); stroke:transparent}
+.tnode text{font-family:var(--ui); font-size:12px; font-weight:600; fill:var(--ink)}
+.tnode.me text{fill:#fff}
+.tlink{stroke:var(--line); stroke-width:1.5; fill:none}
+.reflink{display:flex; gap:8px; align-items:center; margin-bottom:6px}
+.reflink input{flex:1 1 auto; min-width:0; font-size:12px; padding:9px 10px; border:1px solid var(--line); border-radius:10px; background:var(--panel); color:var(--ink)}
 #animalsCard{max-height:82vh; display:flex; flex-direction:column; overflow:hidden}
 .anhint{font-size:13px; color:var(--muted); margin:2px 0 8px}
 .animalist{flex:1 1 auto; min-height:80px; overflow:auto; -webkit-overflow-scrolling:touch; overscroll-behavior:contain; margin-bottom:14px}
@@ -261,6 +272,7 @@ body:not(.online) #recordsBtn{display:none}
     <span class="user" id="user"></span>
     <button class="icobtn" id="recordsBtn" title="Palmarès">🏆</button>
     <button class="icobtn" id="animalsBtn" title="Mes animaux">🐾</button>
+    <button class="icobtn" id="treeBtn" title="Qui a ramené qui">🌳</button>
     <button class="icobtn" id="settingsBtn" title="Paramètres">⚙️</button>
     <button class="icobtn" id="accountBtn">Se connecter</button>
     <button class="icobtn" id="lobbyBtn" title="Revenir au lobby">↩ Lobby</button>
@@ -319,6 +331,10 @@ body:not(.online) #recordsBtn{display:none}
 
 <div class="overlay" id="animalsModal" hidden>
   <div class="card" id="animalsCard"><!-- filled by JS --></div>
+</div>
+
+<div class="overlay" id="treeModal" hidden>
+  <div class="card" id="treeCard"><!-- filled by JS --></div>
 </div>
 
 <script>
@@ -755,11 +771,28 @@ const DICT_B64 = "H4sIAAAAAAACA2RdaZPjKBL9Pv9SXWbU7FpWDQLHVP/6DZH5DrwR3cXLkyMTCa
   // Identité invité persistée (pour garder le même pseudo après reconnexion)
   const GUEST_KEY = "cam_guest";
   const loadGuest = () => { try { return JSON.parse(localStorage.getItem(GUEST_KEY) || "null"); } catch { return null; } };
+
+  // Parrainage : on capte ?p=CODE à l'arrivée, on le garde jusqu'au premier join réussi
+  const REF_KEY = "cam_ref";
+  (function captureRef(){
+    try {
+      const p = new URLSearchParams(location.search).get("p");
+      if (p && /^[A-Za-z0-9]{4,12}$/.test(p)) {
+        if (!localStorage.getItem(REF_KEY)) localStorage.setItem(REF_KEY, p.toUpperCase());
+        const u = new URL(location.href); u.searchParams.delete("p");     // on nettoie l'URL
+        history.replaceState(null, "", u.pathname + u.search + u.hash);
+      }
+    } catch {}
+  })();
+
   async function joinNet(){
     const g = loadGuest();
-    const j = (await apiPost("/api/join", g ? { guestId: g.id, guestName: g.username } : {})).json;
-    NET.id = j.id; NET.username = j.username; NET.authenticated = !!j.authenticated;
+    const body = g ? { guestId: g.id, guestName: g.username } : {};
+    try { const r = localStorage.getItem(REF_KEY); if (r) body.ref = r; } catch {}
+    const j = (await apiPost("/api/join", body)).json;
+    NET.id = j.id; NET.username = j.username; NET.authenticated = !!j.authenticated; NET.code = j.code || "";
     if (!NET.authenticated && NET.id) { try { localStorage.setItem(GUEST_KEY, JSON.stringify({ id: NET.id, username: NET.username })); } catch {} }
+    try { localStorage.removeItem(REF_KEY); } catch {}                    // consommé
     return j;
   }
 
@@ -1228,6 +1261,80 @@ const DICT_B64 = "H4sIAAAAAAACA2RdaZPjKBL9Pv9SXWbU7FpWDQLHVP/6DZH5DrwR3cXLkyMTCa
     apiPost("/api/animals/hide", { id: NET.id, hidden: [...animalsData.hidden] }).catch(() => {});
   }
   el("animalsBtn").onclick = openAnimals;
+
+  // ---------- Arbre de parrainage ----------
+  const escT = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;" }[c]));
+  function layoutTree(nodes){
+    const byCode = new Map(nodes.map((n) => [n.code, n]));
+    const kids = new Map(); const roots = [];
+    for (const n of nodes){
+      const p = n.parent && byCode.has(n.parent) && n.parent !== n.code ? n.parent : "";
+      if (p){ if (!kids.has(p)) kids.set(p, []); kids.get(p).push(n.code); } else roots.push(n.code);
+    }
+    const nameOf = (c) => (byCode.get(c) || {}).name || "";
+    const bySort = (a,b) => nameOf(a).localeCompare(nameOf(b), "fr");
+    roots.sort(bySort); for (const arr of kids.values()) arr.sort(bySort);
+    const pos = new Map(); const seen = new Set(); let cursor = 0;
+    const walk = (code, depth) => {
+      if (seen.has(code)) return cursor;                      // sécurité anti-boucle
+      seen.add(code);
+      const ch = kids.get(code) || [];
+      if (!ch.length){ const x = cursor++; pos.set(code, { x, depth }); return x; }
+      const xs = ch.map((c) => walk(c, depth + 1));
+      const x = (Math.min(...xs) + Math.max(...xs)) / 2;
+      pos.set(code, { x, depth }); return x;
+    };
+    for (const r of roots) walk(r, 0);
+    for (const n of nodes) if (!pos.has(n.code)) pos.set(n.code, { x: cursor++, depth: 0 });
+    return { pos, byCode, kids };
+  }
+  function treeSVG(nodes){
+    if (!nodes.length) return `<div class="anhint">Personne pour l'instant.</div>`;
+    const W = 118, H = 30, GX = 12, GY = 56, PAD = 14;
+    const { pos, byCode, kids } = layoutTree(nodes);
+    const X = (p) => PAD + p.x * (W + GX), Y = (p) => PAD + p.depth * GY;
+    let maxX = 0, maxY = 0;
+    for (const p of pos.values()){ maxX = Math.max(maxX, X(p) + W); maxY = Math.max(maxY, Y(p) + H); }
+    let links = "", boxes = "";
+    for (const [code, ch] of kids){
+      const p = pos.get(code); if (!p) continue;
+      const x1 = X(p) + W/2, y1 = Y(p) + H;
+      for (const c of ch){
+        const q = pos.get(c); if (!q) continue;
+        const x2 = X(q) + W/2, y2 = Y(q), my = (y1 + y2) / 2;
+        links += `<path class="tlink" d="M${x1} ${y1} V${my} H${x2} V${y2}"/>`;
+      }
+    }
+    for (const [code, p] of pos){
+      const n = byCode.get(code); if (!n) continue;
+      const me = NET.code && code === NET.code;
+      let label = n.name; if (label.length > 15) label = label.slice(0, 14) + "…";
+      boxes += `<g class="tnode${me ? " me":""}"><rect x="${X(p)}" y="${Y(p)}" width="${W}" height="${H}" rx="9"/>`
+             + `<text x="${X(p) + W/2}" y="${Y(p) + H/2 + 4}" text-anchor="middle">${escT(label)}</text></g>`;
+    }
+    return `<svg width="${maxX + PAD}" height="${maxY + PAD}" viewBox="0 0 ${maxX + PAD} ${maxY + PAD}" xmlns="http://www.w3.org/2000/svg">${links}${boxes}</svg>`;
+  }
+  async function openTree(){
+    el("treeModal").hidden = false;
+    el("treeCard").innerHTML = `<div class="kicker">Communauté</div><h2>Qui a ramené qui</h2><div class="anhint">Chargement…</div>`;
+    let nodes = [];
+    try { nodes = (await apiGet("/api/referrals")).nodes || []; } catch {}
+    const link = NET.code ? location.origin + location.pathname + "?p=" + NET.code : "";
+    el("treeCard").innerHTML = `
+      <div class="kicker">Communauté</div>
+      <h2>Qui a ramené qui</h2>
+      <div class="anhint">Partage ton lien : les nouveaux joueurs qui arrivent par ce lien seront reliés à toi.</div>
+      ${link ? `<div class="reflink"><input id="refLink" readonly value="${escT(link)}"><button class="btn ghost" id="refCopy">Copier</button></div>` : ""}
+      <div class="treewrap">${treeSVG(nodes)}</div>
+      <button class="btn ghost" id="treeClose">Fermer</button>`;
+    el("treeClose").onclick = () => { el("treeModal").hidden = true; };
+    const cp = el("refCopy");
+    if (cp) cp.onclick = async () => {
+      try { await navigator.clipboard.writeText(link); } catch { const i = el("refLink"); i.select(); try { document.execCommand("copy"); } catch {} }
+      cp.textContent = "Copié !"; setTimeout(() => { cp.textContent = "Copier"; }, 1500);
+    };
+  }
+  el("treeBtn").onclick = openTree;
 
   // ---------- Définition d'un mot ----------
   const defCache = new Map();

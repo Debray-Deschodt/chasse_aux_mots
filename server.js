@@ -380,6 +380,70 @@ async function setAnimalHolder(animal, id, name) {
 // Liste affichable (emoji + nom joli + clé normalisée)
 const ANIMAL_LIST = Object.keys(ANIMOJI).map((k) => ({ key: deacc(k), name: k, emoji: ANIMOJI[k] }));
 
+// ---------- Parrainage ----------
+// Chaque joueur a un code court partageable (lien ?p=CODE). Le premier arrivé via ce lien
+// est rattaché à son parrain, définitivement (un parrain max, pas de boucle).
+const referrals = new Map();   // id -> { code, name, parent (id|""), ts }
+const codeToId = new Map();    // code -> id
+const CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";   // sans I/O/0/1 (ambigus)
+function newCode() {
+  for (let tries = 0; tries < 40; tries++) {
+    let c = "";
+    for (let i = 0; i < 6; i++) c += CODE_ALPHABET[(Math.random() * CODE_ALPHABET.length) | 0];
+    if (!codeToId.has(c)) return c;
+  }
+  return "P" + Date.now().toString(36).toUpperCase().slice(-6);
+}
+async function loadReferrals() {
+  await scoresDb.execute(`CREATE TABLE IF NOT EXISTS referrals(
+    id TEXT PRIMARY KEY, code TEXT UNIQUE, name TEXT, parent TEXT, ts INTEGER)`);
+  try {
+    const r = await scoresDb.execute("SELECT id, code, name, parent FROM referrals");
+    for (const row of r.rows) {
+      const e = { code: String(row.code), name: String(row.name || ""), parent: String(row.parent || "") };
+      referrals.set(String(row.id), e);
+      codeToId.set(e.code, String(row.id));
+    }
+  } catch {}
+}
+async function saveReferral(id) {
+  const e = referrals.get(id); if (!e) return;
+  try { await scoresDb.execute({ sql: "INSERT OR REPLACE INTO referrals(id, code, name, parent, ts) VALUES(?,?,?,?,?)", args: [id, e.code, e.name, e.parent, Date.now()] }); } catch {}
+}
+// Inscrit le joueur (ou met à jour son pseudo) et renvoie son code
+async function ensureReferral(id, name) {
+  let e = referrals.get(id);
+  if (!e) {
+    e = { code: newCode(), name, parent: "" };
+    referrals.set(id, e); codeToId.set(e.code, id);
+    await saveReferral(id);
+  } else if (name && e.name !== name) {
+    e.name = name; await saveReferral(id);
+  }
+  return e.code;
+}
+// Rattache `id` au parrain désigné par `code` (une seule fois, sans boucle)
+async function linkReferral(id, code) {
+  const e = referrals.get(id); if (!e || e.parent) return;             // déjà parrainé -> on ne change pas
+  const parentId = codeToId.get(String(code || "").toUpperCase().trim());
+  if (!parentId || parentId === id) return;                            // code inconnu / auto-parrainage
+  for (let p = parentId, n = 0; p && n < 200; n++) {                   // anti-boucle
+    if (p === id) return;
+    p = (referrals.get(p) || {}).parent || "";
+  }
+  e.parent = parentId;
+  await saveReferral(id);
+}
+// Arbre public : on n'expose que les codes (jamais les ids internes)
+function referralTree() {
+  const nodes = [];
+  for (const [id, e] of referrals) {
+    const parentEntry = e.parent ? referrals.get(e.parent) : null;
+    nodes.push({ code: e.code, name: e.name || "Joueur", parent: parentEntry ? parentEntry.code : "" });
+  }
+  return nodes;
+}
+
 // Préférences d'affichage : chaque joueur peut masquer certains de ses emojis (pour lui ET pour les autres)
 const hiddenAnimals = new Map();         // id -> Set(noms normalisés masqués)
 async function loadAnimalPrefs() {
@@ -490,7 +554,12 @@ const server = http.createServer(async (req, res) => {
         username = clientName || visitorName();
       }
       players.set(id, { username });
-      return send(res, 200, { id, username, authenticated, ...currentRound() });
+      let code = "";
+      try {
+        code = await ensureReferral(id, username);
+        if (typeof body.ref === "string" && body.ref) await linkReferral(id, body.ref);
+      } catch {}
+      return send(res, 200, { id, username, authenticated, code, ...currentRound() });
     }
 
     // Envoyer son score + ses mots pour la manche courante
@@ -527,6 +596,11 @@ const server = http.createServer(async (req, res) => {
       if (!mot || mot.length < 2) return send(res, 400, { error: "bad_word" });
       const def = await getDefinition(mot);
       return send(res, 200, { mot, defs: Array.isArray(def) ? def : [] });
+    }
+
+    // Arbre de parrainage (qui a ramené qui)
+    if (req.method === "GET" && pathname === "/api/referrals") {
+      return send(res, 200, { nodes: referralTree() });
     }
 
     // Liste des animaux (emoji + nom) + ce que ce joueur détient / masque
@@ -576,6 +650,7 @@ try {
   await initScoresDb();
   await loadAnimals();
   await loadAnimalPrefs();
+  await loadReferrals();
   setInterval(() => { flushFinishedRounds().catch(() => {}); }, Number(process.env.FLUSH_MS || 10_000));
 } catch (e) {
   console.error("⚠ Base de scores :", e.message);
