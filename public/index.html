@@ -138,10 +138,10 @@ body:not(.online) #accountBtn{display:none}
 .disc .nd.me{fill:var(--magenta)}
 .disc .nd.sel{stroke:var(--magenta)}
 .disc .nd.lin{stroke:var(--green)}
-.disc .nd.pinned{stroke-dasharray:2 2}
 .disc .lbl{font-family:var(--ui); font-weight:700; fill:var(--muted); pointer-events:none; paint-order:stroke;
   stroke:var(--board); stroke-width:3px; stroke-linejoin:round}
 .disc .lbl.hid{display:none}
+.disc .hub{font-family:var(--display); font-size:11px; fill:var(--muted); opacity:.5; text-transform:uppercase; pointer-events:none}
 .dload{display:grid; place-items:center; height:100%; font-size:12px; color:var(--muted)}
 .zoomer{position:absolute; right:8px; bottom:8px; display:flex; gap:5px}
 .zoomer button{width:30px; height:30px; border-radius:8px; border:1.5px solid var(--line); background:var(--panel);
@@ -348,7 +348,7 @@ body:not(.online) #recordsBtn{display:none}
     <span class="user" id="user"></span>
     <button class="icobtn" id="recordsBtn" title="Palmarès">🏆</button>
     <button class="icobtn" id="animalsBtn" title="Mes animaux">🐾</button>
-    <button class="icobtn" id="treeBtn" title="Les Maisons">🏠</button>
+    <button class="icobtn" id="treeBtn" title="L'arbre des joueurs">🌳</button>
     <button class="icobtn" id="settingsBtn" title="Paramètres">⚙️</button>
     <button class="icobtn" id="accountBtn">Se connecter</button>
     <button class="icobtn" id="lobbyBtn" title="Revenir au lobby">↩ Lobby</button>
@@ -868,6 +868,7 @@ const DICT_B64 = "H4sIAAAAAAACA2RdaZPjKBL9Pv9SXWbU7FpWDQLHVP/6DZH5DrwR3cXLkyMTCa
     const j = (await apiPost("/api/join", body)).json;
     NET.id = j.id; NET.username = j.username; NET.authenticated = !!j.authenticated; NET.code = j.code || "";
     if (!NET.authenticated && NET.id) { try { localStorage.setItem(GUEST_KEY, JSON.stringify({ id: NET.id, username: NET.username })); } catch {} }
+    if (j.merged) { try { localStorage.removeItem(GUEST_KEY); } catch {} }   // l'identité invité a été reprise par le compte
     try { localStorage.removeItem(REF_KEY); } catch {}                    // consommé
     return j;
   }
@@ -1338,7 +1339,7 @@ const DICT_B64 = "H4sIAAAAAAACA2RdaZPjKBL9Pv9SXWbU7FpWDQLHVP/6DZH5DrwR3cXLkyMTCa
   }
   el("animalsBtn").onclick = openAnimals;
 
-  // ---------- Les Maisons (parrainage) ----------
+  // ---------- L'Arbre (parrainage) ----------
   const escT = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;" }[c]));
   function buildHouses(nodes){
     const byCode = new Map(nodes.map((n) => [n.code, n]));
@@ -1400,7 +1401,7 @@ const DICT_B64 = "H4sIAAAAAAACA2RdaZPjKBL9Pv9SXWbU7FpWDQLHVP/6DZH5DrwR3cXLkyMTCa
       if (sh) sh.onclick = () => { navigator.share({ title: "Chasse aux mots", text: "Viens jouer avec moi !", url: treeLink }).catch(() => {}); };
     } else {
       const mine = NET.code && treeIdx && treeIdx.byCode.has(NET.code);
-      bar.innerHTML = mine && treeFocus !== NET.code ? `<button class="btn ghost" id="refMine">Ma maison</button>` : "";
+      bar.innerHTML = mine && treeFocus !== NET.code ? `<button class="btn ghost" id="refMine">Ma branche</button>` : "";
       const mn = el("refMine");
       if (mn) mn.onclick = () => { treeFocus = NET.code; renderTree(); };
     }
@@ -1424,11 +1425,12 @@ const DICT_B64 = "H4sIAAAAAAACA2RdaZPjKBL9Pv9SXWbU7FpWDQLHVP/6DZH5DrwR3cXLkyMTCa
     if (!treeNodes.length) return `<div class="anhint">Aucun joueur pour l'instant.</div>`;
     const { kids } = treeIdx;
     const houses = treeNodes.filter((n) => (kids.get(n.code) || []).length).length;
+    const solo = treeNodes.filter((n) => !n.parent || !treeIdx.byCode.has(n.parent)).length;
     let maxDepth = 0;
     for (const n of treeNodes) maxDepth = Math.max(maxDepth, pathTo(n.code).length - 1);
-    return `<div class="tstats">${treeNodes.length} joueurs · ${houses} maison${houses>1?"s":""} · ${maxDepth + 1} génération${maxDepth?"s":""}</div>
+    return `<div class="tstats">${treeNodes.length} joueurs · ${houses} parrain${houses>1?"s":""} · ${maxDepth + 1} génération${maxDepth?"s":""}${solo > 1 ? ` · ${solo} sans parrain` : ""}</div>
       <div class="disc" id="disc" style="height:min(56vh,360px)"><div class="dload">Chargement du plan…</div></div>
-      <div class="discsel" id="discSel"><span class="hint">Touche un point pour sa lignée, double-touche pour son profil.</span></div>`;
+      <div class="discsel" id="discSel"><span class="hint">Touche un point pour voir sa lignée, double-touche pour ouvrir sa branche.</span></div>`;
   }
   async function mountGraph(){
     const host = el("disc"); if (!host) return;
@@ -1440,7 +1442,8 @@ const DICT_B64 = "H4sIAAAAAAACA2RdaZPjKBL9Pv9SXWbU7FpWDQLHVP/6DZH5DrwR3cXLkyMTCa
     }
     if (!el("disc")) return;                                  // fenêtre refermée entre-temps
     const { byCode, kids, roots } = treeIdx;
-    const depthOf = (c) => pathTo(c).length - 1;
+    const multiRoot = roots.length > 1;                       // plusieurs points de départ (arrivées sans parrain)
+    const depthOf = (c) => pathTo(c).length - 1 + (multiRoot ? 1 : 0);   // centre laissé libre si plusieurs racines
     // Angle cible par lignée : chaque branche garde son secteur (évite l'emmêlement)
     const leafMemo = new Map(), lguard = new Set();
     const leaves = (c) => {
@@ -1461,9 +1464,10 @@ const DICT_B64 = "H4sIAAAAAAACA2RdaZPjKBL9Pv9SXWbU7FpWDQLHVP/6DZH5DrwR3cXLkyMTCa
     };
     if (roots.length === 1) assign(roots[0], -Math.PI/2, Math.PI*1.5, "");
     else {
-      const tot = roots.reduce((s, r) => s + leaves(r), 0) || 1;
+      const wRoot = (r) => leaves(r) + 4;                     // +4 : garantit une part visible aux petites racines
+      const tot = roots.reduce((s, r) => s + wRoot(r), 0) || 1;
       let cur = -Math.PI/2;
-      for (const r of [...roots].sort((x,y) => leaves(y) - leaves(x))){ const w = 2*Math.PI*leaves(r)/tot; assign(r, cur, cur + w, r); cur += w; }
+      for (const r of [...roots].sort((x,y) => leaves(y) - leaves(x))){ const w = 2*Math.PI*wRoot(r)/tot; assign(r, cur, cur + w, r); cur += w; }
     }
     const lineageOf = (code) => {                              // ancêtres + soi + toute la descendance
       const set = new Set();
@@ -1485,16 +1489,33 @@ const DICT_B64 = "H4sIAAAAAAACA2RdaZPjKBL9Pv9SXWbU7FpWDQLHVP/6DZH5DrwR3cXLkyMTCa
     const links = [];
     for (const [p, ch] of kids) for (const c of ch) if (byCode.has(p) && byCode.has(c)) links.push({ source: p, target: c });
     const W = host.clientWidth || 320, H = host.clientHeight || 340;
-    const RING = Math.max(46, Math.min(92, Math.sqrt(W * H / Math.max(6, nodes.length)) * 1.25));
     const rOf = (d) => 4 + Math.min(8, Math.sqrt(d.size) * 1.7);
+    const maxDepth = nodes.reduce((m, n) => Math.max(m, n.depth), 0);
+    // écart des anneaux : assez large pour que deux voisins d'un même anneau ne se touchent pas
+    const perDepth = new Map();
+    for (const n of nodes){ if (!perDepth.has(n.depth)) perDepth.set(n.depth, []); perDepth.get(n.depth).push(n.a); }
+    let RING = 58;
+    const need = 2 * (4 + 8) + 10;                              // deux gros points + marge
+    for (const [d, angs] of perDepth){
+      if (d < 1 || angs.length < 2) continue;
+      angs.sort((x, y) => x - y);
+      let gap = Infinity;
+      for (let i = 1; i < angs.length; i++) gap = Math.min(gap, angs[i] - angs[i-1]);
+      if (gap > 0 && isFinite(gap)) RING = Math.max(RING, need / (d * gap));
+    }
+    RING = Math.min(RING, 460);
 
     host.innerHTML = `<svg><g class="scene"><g class="rings"></g><g class="links"></g><g class="dots"></g><g class="labels"></g></g></svg>
       <div class="zoomer"><button data-z="out">−</button><button data-z="in">+</button><button data-z="fit">⤢</button></div>`;
     const svg = d3.select(host).select("svg").attr("viewBox", `0 0 ${W} ${H}`);
     const scene = svg.select(".scene");
     scene.select(".rings").selectAll("circle")
-      .data(d3.range(1, d3.max(nodes, (n) => n.depth) + 1 || 1)).join("circle")
+      .data(d3.range(1, maxDepth + 1)).join("circle")
       .attr("class", "ring").attr("cx", W/2).attr("cy", H/2).attr("r", (d) => d * RING);
+    if (multiRoot){                                            // le centre n'appartient à personne : on l'indique
+      scene.select(".rings").append("text").attr("class", "hub")
+        .attr("x", W/2).attr("y", H/2 + 4).attr("text-anchor", "middle").text("chasse aux mots");
+    }
     const link = scene.select(".links").selectAll("line").data(links).join("line").attr("class", "lnk")
       .attr("stroke", (d) => { const b = branchOf.get(typeof d.target === "object" ? d.target.id : d.target);
         return b ? `hsl(${hueOf(b).toFixed(0)} 45% 55%)` : "var(--line)"; });
@@ -1513,9 +1534,9 @@ const DICT_B64 = "H4sIAAAAAAACA2RdaZPjKBL9Pv9SXWbU7FpWDQLHVP/6DZH5DrwR3cXLkyMTCa
     const sim = d3.forceSimulation(nodes)
       .force("link", d3.forceLink(links).id((d) => d.id).distance(RING * 0.85).strength(.12))
       .force("charge", d3.forceManyBody().strength(-Math.max(30, RING)))
-      .force("sector", d3.forceX((d) => d.tx).strength(.42))   // maintient chaque branche dans son quartier
-      .force("sectorY", d3.forceY((d) => d.ty).strength(.42))
-      .force("collide", d3.forceCollide((d) => rOf(d) + 7).iterations(2))
+      .force("sector", d3.forceX((d) => d.tx).strength(.22))   // maintient chaque branche dans son quartier
+      .force("sectorY", d3.forceY((d) => d.ty).strength(.22))
+      .force("collide", d3.forceCollide((d) => rOf(d) + 6).strength(1).iterations(4))
       .alpha(.7);
 
     // zoom / déplacement — les libellés gardent une taille écran constante
@@ -1557,22 +1578,27 @@ const DICT_B64 = "H4sIAAAAAAACA2RdaZPjKBL9Pv9SXWbU7FpWDQLHVP/6DZH5DrwR3cXLkyMTCa
     };
     sim.on("tick", tick).on("end", relabel);
 
-    const zoom = d3.zoom().scaleExtent([0.25, 8]).on("zoom", (ev) => {
+    const zoom = d3.zoom().scaleExtent([0.05, 10]).on("zoom", (ev) => {
       k = ev.transform.k; scene.attr("transform", ev.transform); relabel();
     });
     svg.call(zoom).on("dblclick.zoom", null);   // le double-clic sert à ouvrir le profil
+    const fitT = () => {                         // cadre l'ensemble du disque
+      const sc = Math.min(1, Math.min(W, H) / (2 * (maxDepth * RING + 42)));
+      return d3.zoomIdentity.translate(W/2 * (1 - sc), H/2 * (1 - sc)).scale(sc);
+    };
+    svg.call(zoom.transform, fitT());
     host.querySelectorAll("[data-z]").forEach((b) => b.onclick = (ev) => {
       ev.stopPropagation();
       if (b.dataset.z === "in") svg.transition().duration(200).call(zoom.scaleBy, 1.5);
       else if (b.dataset.z === "out") svg.transition().duration(200).call(zoom.scaleBy, 0.66);
-      else svg.transition().duration(250).call(zoom.transform, d3.zoomIdentity);
+      else svg.transition().duration(250).call(zoom.transform, fitT());
     });
 
     // points déplaçables : relâché = épinglé (double-tap pour libérer)
     dot.call(d3.drag()
       .on("start", (ev, d) => { if (!ev.active) sim.alphaTarget(.25).restart(); d.fx = d.x; d.fy = d.y; })
       .on("drag", (ev, d) => { d.fx = ev.x; d.fy = ev.y; })
-      .on("end", (ev, d) => { if (!ev.active) sim.alphaTarget(0); d.pinned = true; d3.select(ev.sourceEvent.target).classed("pinned", true); }));
+      .on("end", (ev, d) => { if (!ev.active) sim.alphaTarget(0); d.pinned = true; }));
     dot.on("dblclick", (ev, d) => {              // double-clic : ouvre son profil dans Explorer
       ev.stopPropagation(); ev.preventDefault();
       treeFocus = d.id; treeMode = "focus"; treeQuery = ""; renderTree();
@@ -1585,18 +1611,18 @@ const DICT_B64 = "H4sIAAAAAAACA2RdaZPjKBL9Pv9SXWbU7FpWDQLHVP/6DZH5DrwR3cXLkyMTCa
       dot.classed("sel", false); d3.select(ev.currentTarget).classed("sel", true);
       selId = d.id; lineage = lineageOf(d.id); paint();                       // toute sa lignée passe en vert
       sel.innerHTML = `<span class="mono mini${d.me ? " me":""}">${escT(initialOf(d.name))}</span>`
-        + `<span class="nm">${escT(d.name)}${d.size ? ` · ${d.size} dans sa lignée` : ""}</span>`
+        + `<span class="nm">${escT(d.name)}${d.size ? ` · ${d.size} dans sa branche` : ""}</span>`
         + (d.pinned ? `<button class="unpin" data-unpin="1">Libérer</button>` : "")
         + `<button class="go" data-go2="${d.id}">Explorer</button>`;
       const g = sel.querySelector("[data-go2]");
       if (g) g.onclick = () => { treeFocus = d.id; treeMode = "focus"; treeQuery = ""; renderTree(); };
       const u = sel.querySelector("[data-unpin]");
       if (u) u.onclick = () => { d.fx = d.fy = null; d.pinned = false;
-        d3.select(ev.currentTarget).classed("pinned", false); u.remove(); sim.alphaTarget(.2).restart(); setTimeout(() => sim.alphaTarget(0), 600); };
+        u.remove(); sim.alphaTarget(.2).restart(); setTimeout(() => sim.alphaTarget(0), 600); };
     });
     svg.on("click", () => {
       dot.classed("sel", false); selId = ""; lineage = new Set(); paint();
-      sel.innerHTML = `<span class="hint">Touche un point pour sa lignée, double-touche pour son profil.</span>`;
+      sel.innerHTML = `<span class="hint">Touche un point pour voir sa lignée, double-touche pour ouvrir sa branche.</span>`;
     });
     // on arrête la simulation quand la fenêtre se ferme
     graphStop = () => sim.stop();
@@ -1644,7 +1670,7 @@ const DICT_B64 = "H4sIAAAAAAACA2RdaZPjKBL9Pv9SXWbU7FpWDQLHVP/6DZH5DrwR3cXLkyMTCa
       head = `<div class="focus${me ? " mine":""}">
         <span class="mono founder${me ? " me":""}">${escT(initialOf(focusEntry.name))}</span>
         <span class="fname">${escT(focusEntry.name)}</span>
-        <span class="fsub">${tot} dans sa lignée</span>
+        <span class="fsub">${tot} dans sa branche</span>
       </div>`;
     }
     const nameOf = (c) => (byCode.get(c) || {}).name || "";
@@ -1662,7 +1688,9 @@ const DICT_B64 = "H4sIAAAAAAACA2RdaZPjKBL9Pv9SXWbU7FpWDQLHVP/6DZH5DrwR3cXLkyMTCa
     return `<input class="tsearch" id="treeSearch" type="search" placeholder="Rechercher un joueur" value="${escT(treeQuery)}">`
       + `<div class="tsres" id="tsRes"></div>`
       + `<div class="crumbs">${crumbs}</div>${head}`
-      + (rows || `<div class="anhint">Personne dans cette maison. Invite quelqu'un pour la peupler.</div>`);
+      + (rows || (NET.code && treeFocus === NET.code
+          ? `<div class="anhint">Ta branche est vide. Invite quelqu'un pour la faire pousser.</div>`
+          : `<div class="anhint">${treeFocus ? "Ce joueur n'a encore invité personne." : "Aucun joueur pour l'instant."}</div>`));
   }
   async function openTree(){
     el("treeModal").hidden = false;
@@ -1670,8 +1698,8 @@ const DICT_B64 = "H4sIAAAAAAACA2RdaZPjKBL9Pv9SXWbU7FpWDQLHVP/6DZH5DrwR3cXLkyMTCa
     const canShare = !!(navigator.share && link);
     el("treeCard").innerHTML = `
       <div class="kicker">Communauté</div>
-      <h2>Les Maisons</h2>
-      <div class="anhint">Entre dans une maison pour voir qui l'habite. Chaque joueur que tu invites fonde la sienne.</div>
+      <h2>L'Arbre</h2>
+      <div class="anhint">L'arbre pousse par le bouche-à-oreille : chaque joueur invité devient une nouvelle branche.</div>
       <div class="treewrap" id="treeView"><div class="anhint">Chargement…</div></div>
       <div class="refbar" id="treeActions"></div>
       <button class="btn ghost" id="treeClose" style="margin-top:8px">Fermer</button>`;

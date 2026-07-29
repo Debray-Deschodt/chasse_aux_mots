@@ -434,6 +434,26 @@ async function linkReferral(id, code) {
   e.parent = parentId;
   await saveReferral(id);
 }
+// Création de compte / connexion : l'identité invité est reprise par le compte
+// (on garde le parrain ET les filleuls acquis en tant qu'invité)
+async function mergeReferral(accountId, guestId) {
+  if (!guestId || accountId === guestId) return false;
+  const g = referrals.get(guestId); if (!g) return false;
+  const a = referrals.get(accountId); if (!a) return false;
+  // le compte hérite du parrain de l'invité (sans créer de boucle)
+  if (!a.parent && g.parent && g.parent !== accountId) {
+    let ok = true;
+    for (let p = g.parent, n = 0; p && n < 200; n++) { if (p === accountId) { ok = false; break; } p = (referrals.get(p) || {}).parent || ""; }
+    if (ok) a.parent = g.parent;
+  }
+  // les filleuls de l'invité sont rattachés au compte
+  for (const [id, e] of referrals) if (e.parent === guestId && id !== accountId) { e.parent = accountId; await saveReferral(id); }
+  // l'ancienne fiche invité disparaît
+  referrals.delete(guestId); codeToId.delete(g.code);
+  try { await scoresDb.execute({ sql: "DELETE FROM referrals WHERE id = ?", args: [guestId] }); } catch {}
+  await saveReferral(accountId);
+  return true;
+}
 // Arbre public : on n'expose que les codes (jamais les ids internes)
 function referralTree() {
   const nodes = [];
@@ -554,12 +574,14 @@ const server = http.createServer(async (req, res) => {
         username = clientName || visitorName();
       }
       players.set(id, { username });
-      let code = "";
+      let code = "", merged = false;
       try {
         code = await ensureReferral(id, username);
+        if (authenticated && typeof body.guestId === "string" && body.guestId.trim())
+          merged = await mergeReferral(id, body.guestId.trim());        // le compte reprend l'identité invité
         if (typeof body.ref === "string" && body.ref) await linkReferral(id, body.ref);
       } catch {}
-      return send(res, 200, { id, username, authenticated, code, ...currentRound() });
+      return send(res, 200, { id, username, authenticated, code, merged, ...currentRound() });
     }
 
     // Envoyer son score + ses mots pour la manche courante
