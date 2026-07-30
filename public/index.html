@@ -169,7 +169,10 @@ body:not(.online) #accountBtn{display:none}
 .animalist{flex:1 1 auto; min-height:80px; overflow:auto; -webkit-overflow-scrolling:touch; overscroll-behavior:contain; margin-bottom:14px}
 .anrow{display:flex; align-items:center; gap:12px; padding:8px 2px; border-bottom:1px solid var(--line)}
 .anrow .emo{font-size:23px; width:28px; text-align:center; flex:0 0 auto}
-.anrow .nm{flex:1 1 auto; text-transform:capitalize; font-weight:600; color:var(--ink)}
+.anrow .nm{flex:1 1 auto; min-width:0; text-transform:capitalize; font-weight:600; color:var(--ink)}
+.anrow .owner{display:block; font-size:11px; font-weight:600; color:var(--muted); text-transform:none;
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.anrow .owner.free{font-style:italic; opacity:.7}
 .anrow .won{font-size:10px; font-weight:800; color:#fff; background:var(--green); padding:2px 7px; border-radius:999px; text-transform:uppercase; letter-spacing:.04em; flex:0 0 auto}
 .anrow.notwon .emo{filter:grayscale(1); opacity:.45}
 .anrow.notwon .nm{color:var(--muted)}
@@ -1304,19 +1307,20 @@ const DICT_B64 = "H4sIAAAAAAACA2RdaZPjKBL9Pv9SXWbU7FpWDQLHVP/6DZH5DrwR3cXLkyMTCa
     el("animalsCard").innerHTML = `<div class="kicker">Collection</div><h2>Mes animaux</h2><div class="anhint">Chargement…</div>`;
     try {
       const r = await apiGet(`/api/animals?id=${encodeURIComponent(NET.id || "")}`);
-      animalsData = { animals: r.animals || [], held: new Set(r.held || []), hidden: new Set(r.hidden || []) };
-    } catch { animalsData = { animals: [], held: new Set(), hidden: new Set() }; }
+      animalsData = { animals: r.animals || [], held: new Set(r.held || []), hidden: new Set(r.hidden || []), holders: r.holders || {} };
+    } catch { animalsData = { animals: [], held: new Set(), hidden: new Set(), holders: {} }; }
     renderAnimals();
   }
   function renderAnimals(){
     if (el("animalsModal").hidden || !animalsData) return;
-    const { animals, held, hidden } = animalsData;
+    const { animals, held, hidden, holders } = animalsData;
     const ordered = [...animals].sort((a,b) => (held.has(b.key)?1:0) - (held.has(a.key)?1:0));   // gagnés d'abord
     const rows = ordered.map((a) => {
       const won = held.has(a.key), shown = !hidden.has(a.key);
+      const holder = holders && holders[a.key];
       return `<div class="anrow${won ? "" : " notwon"}">
         <span class="emo">${a.emoji}</span>
-        <span class="nm">${a.name}</span>
+        <span class="nm">${a.name}${holder ? `<span class="owner">${escDef(holder)}</span>` : `<span class="owner free">à prendre</span>`}</span>
         ${won ? `<span class="won">gagné</span>` : ""}
         <button class="switch${shown ? " on" : ""}" data-k="${a.key}" role="switch" aria-checked="${shown}" aria-label="Afficher ${a.name}"><span class="knob"></span></button>
       </div>`;

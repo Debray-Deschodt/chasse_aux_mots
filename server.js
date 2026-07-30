@@ -646,9 +646,12 @@ const server = http.createServer(async (req, res) => {
     // Liste des animaux (emoji + nom) + ce que ce joueur détient / masque
     if (req.method === "GET" && pathname === "/api/animals") {
       const id = searchParams.get("id") || "";
-      const held = [];
-      for (const [animal, h] of animalHolders) if (h.id === id) held.push(animal);
-      return send(res, 200, { animals: ANIMAL_LIST, held, hidden: [...(hiddenAnimals.get(id) || [])] });
+      const held = [], holders = {};
+      for (const [animal, h] of animalHolders) {
+        if (h.id === id) held.push(animal);
+        if (h.name) holders[animal] = h.name;                 // qui détient chaque animal
+      }
+      return send(res, 200, { animals: ANIMAL_LIST, held, holders, hidden: [...(hiddenAnimals.get(id) || [])] });
     }
     // Enregistrer les animaux masqués d'un joueur (affecte l'affichage pour tous)
     if (req.method === "POST" && pathname === "/api/animals/hide") {
