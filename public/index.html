@@ -845,7 +845,13 @@ const DICT_B64 = "H4sIAAAAAAACA2RdaZPjKBL9Pv9SXWbU7FpWDQLHVP/6DZH5DrwR3cXLkyMTCa
                 leaderboard:[], dayRank:{}, weekRank:{}, lastPhase:null, lastSeed:null, lastSent:-1, sentAt:0 };
   const serverNow = () => Date.now() + NET.offset;
   const fmt = (s) => `${Math.floor(s/60)}:${String(s%60).padStart(2,"0")}`;
-  const apiGet = (p) => fetch(API + p, { cache:"no-store" }).then(r => r.json());
+  const apiGet = (p, ms = 8000) => {                          // borne le temps : une requête gelée
+    const c = new AbortController();                          // (mise en veille) ne doit jamais bloquer la boucle
+    const t = setTimeout(() => c.abort(), ms);
+    return fetch(API + p, { cache:"no-store", signal:c.signal })
+      .then(r => r.json())
+      .finally(() => clearTimeout(t));
+  };
   const apiPost = (p, b) => fetch(API + p, { method:"POST", headers:{"content-type":"application/json"}, body:JSON.stringify(b) })
                             .then(async r => ({ status:r.status, json: await r.json() }));
 
@@ -894,14 +900,35 @@ const DICT_B64 = "H4sIAAAAAAACA2RdaZPjKBL9Pv9SXWbU7FpWDQLHVP/6DZH5DrwR3cXLkyMTCa
     return true;
   }
 
-  async function syncLoop(){
+  let syncTimer = null, syncing = false, lastSync = 0;
+  async function syncOnce(){
+    if (syncing) return;                                       // une seule requête en vol
+    syncing = true;
     try {
       const st = await apiGet("/api/state");
       NET.offset = st.serverTime - Date.now(); NET.state = st; NET.leaderboard = st.leaderboard || [];
+      lastSync = Date.now();
       reconcile(st);
-    } catch { /* serveur momentanément indispo : on retente */ }
-    setTimeout(syncLoop, 1000);
+      uiTick();
+    } catch { /* serveur indispo ou requête annulée : on retentera */ }
+    finally { syncing = false; }
   }
+  function syncLoop(){                                         // la boucle est toujours reprogrammée
+    clearTimeout(syncTimer);
+    syncOnce().finally(() => { clearTimeout(syncTimer); syncTimer = setTimeout(syncLoop, 1000); });
+  }
+  // Retour d'arrière-plan : les minuteurs ont pu être gelés, on resynchronise tout de suite
+  function wakeUp(){
+    if (document.hidden || !NET.online) return;                // en solo, state.timer porte la boucle du jeu
+    clearInterval(state.timer); state.timer = setInterval(uiTick, 250);   // au cas où l'horloge a été suspendue
+    syncLoop();
+  }
+  document.addEventListener("visibilitychange", wakeUp);
+  window.addEventListener("pageshow", wakeUp);
+  window.addEventListener("focus", wakeUp);
+  window.addEventListener("online", wakeUp);
+  // chien de garde : si plus rien n'est arrivé du serveur, on relance
+  setInterval(() => { if (!document.hidden && NET.online && Date.now() - lastSync > 6000) wakeUp(); }, 3000);
 
   function ensureGrid(seed){
     if (state.seed === seed && state.grid.length) return;
