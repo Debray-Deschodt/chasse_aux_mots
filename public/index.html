@@ -496,6 +496,41 @@ const DICT_B64 = "H4sIAAAAAAACA2RdaZPjKBL9Pv9SXWbU7FpWDQLHVP/6DZH5DrwR3cXLkyMTCa
     return out;
   }
 
+  // Même résolution, mais DÉCOUPÉE : on rend la main au navigateur toutes les ~10 ms.
+  // Sinon, parcourir 330 000 mots fige l'écran ~1 s sur mobile (boutons et défilement morts).
+  let solveJob = 0;
+  function solveGridAsync(grid, done){
+    const job = ++solveJob;                                   // annule silencieusement le calcul précédent
+    const R = grid.length, C = grid[0].length;
+    const low = grid.map(r => r.map(c => c.toLowerCase()));
+    const seen = Array.from({length:R}, () => new Array(C).fill(false));
+    const counts = gridCounts(grid);
+    function dfs(r,c,w,i){
+      if (low[r][c] !== w[i]) return false;
+      if (i === w.length-1) return true;
+      seen[r][c] = true;
+      for (const [dr,dc] of DIRS8){ const nr=r+dr, nc=c+dc;
+        if (nr>=0&&nr<R&&nc>=0&&nc<C&&!seen[nr][nc]&&dfs(nr,nc,w,i+1)){ seen[r][c]=false; return true; } }
+      seen[r][c] = false; return false;
+    }
+    const can = (w) => { for (let r=0;r<R;r++) for (let c=0;c<C;c++) if (low[r][c]===w[0] && dfs(r,c,w,0)) return true; return false; };
+    const words = state.dict;                                 // itérable une seule fois -> on le fige
+    const list = Array.isArray(words) ? words : [...words];
+    const out = []; let i = 0;
+    (function chunk(){
+      if (job !== solveJob) return;                           // une nouvelle manche a démarré
+      const t0 = Date.now();
+      while (i < list.length){
+        const w = list[i++]; const L = w.length;
+        if (L >= 3 && L <= 16 && fits(w, counts) && can(w)) out.push(w);
+        if ((i & 1023) === 0 && Date.now() - t0 > 10) break;   // on rend la main
+      }
+      if (i < list.length){ setTimeout(chunk, 0); return; }
+      out.sort((a,b) => b.length - a.length || (a < b ? -1 : 1));
+      done(out);
+    })();
+  }
+
   // ---------- Dictionnaire (gzip base64 -> Set) ----------
   async function loadDict(b64){
     const bin = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
@@ -806,16 +841,15 @@ const DICT_B64 = "H4sIAAAAAAACA2RdaZPjKBL9Pv9SXWbU7FpWDQLHVP/6DZH5DrwR3cXLkyMTCa
       el("shareEnd").onclick = share;
       // calcul différé pour laisser le bilan s'afficher d'abord
       const gridForSolve = state.grid;
-      setTimeout(() => {
+      solveGridAsync(gridForSolve, (all) => {                  // découpé : le bilan reste réactif
         if (el("solhead") == null) return; // l'utilisateur a déjà quitté le bilan
-        const all = solveGrid(gridForSolve);
         const maxScore = all.reduce((s,w) => s + scoreFor(w.length), 0);
         el("solhead").innerHTML =
           `Mots de la grille · <b>${state.found.size}/${all.length}</b> trouvés · score max ${maxScore}`;
         el("wordlist").innerHTML = all.map(w =>
           `<span class="word ${state.found.has(w) ? "got" : ""}">${w.toUpperCase()}<i>${scoreFor(w.length)}</i></span>`
         ).join("");
-      }, 30);
+      });
       return;
     }
   }
@@ -933,7 +967,11 @@ const DICT_B64 = "H4sIAAAAAAACA2RdaZPjKBL9Pv9SXWbU7FpWDQLHVP/6DZH5DrwR3cXLkyMTCa
   function ensureGrid(seed){
     if (state.seed === seed && state.grid.length) return;
     state.seed = seed; buildGrid(); state.solution = [];
-    setTimeout(() => { if (state.seed === seed && !state.solution.length) state.solution = solveGrid(state.grid); }, 0);
+    solveGridAsync(state.grid, (all) => {                      // découpé : ne bloque plus le démarrage de manche
+      if (state.seed !== seed) return;
+      state.solution = all;
+      if (NET.state && NET.state.phase === "break" && el("solhead")){ breakAll = all; renderWordlist(); }
+    });
   }
 
   function reconcile(st){
@@ -1073,8 +1111,13 @@ const DICT_B64 = "H4sIAAAAAAACA2RdaZPjKBL9Pv9SXWbU7FpWDQLHVP/6DZH5DrwR3cXLkyMTCa
     setTimeout(() => {
       if (!el("solhead") || !NET.state || NET.state.phase !== "break") return;
       const grid = (state.seed === seed && state.grid.length) ? state.grid : gridFromSeed(seed);
-      breakAll = state.solution.length ? state.solution : solveGrid(grid);
-      renderWordlist();
+      if (state.solution.length){ breakAll = state.solution; renderWordlist(); return; }
+      renderWordlist();                                        // on affiche déjà les mots trouvés
+      solveGridAsync(grid, (all) => {                          // puis la grille complète, sans geler l'écran
+        if (!el("solhead") || !NET.state || NET.state.phase !== "break") return;
+        if (state.seed === seed) state.solution = all;
+        breakAll = all; renderWordlist();
+      });
     }, 20);
   }
 
