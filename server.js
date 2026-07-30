@@ -394,13 +394,17 @@ function newCode() {
   }
   return "P" + Date.now().toString(36).toUpperCase().slice(-6);
 }
+// Un invité qui n'est pas revenu depuis ce délai disparaît de l'arbre (sauf s'il a parrainé quelqu'un d'actif)
+const GUEST_TTL = Number(process.env.GUEST_TTL_DAYS || 30) * 86400_000;
 async function loadReferrals() {
   await scoresDb.execute(`CREATE TABLE IF NOT EXISTS referrals(
-    id TEXT PRIMARY KEY, code TEXT UNIQUE, name TEXT, parent TEXT, ts INTEGER)`);
+    id TEXT PRIMARY KEY, code TEXT UNIQUE, name TEXT, parent TEXT, ts INTEGER, seen INTEGER)`);
+  try { await scoresDb.execute("ALTER TABLE referrals ADD COLUMN seen INTEGER"); } catch {}   // bases déjà créées
   try {
-    const r = await scoresDb.execute("SELECT id, code, name, parent FROM referrals");
+    const r = await scoresDb.execute("SELECT id, code, name, parent, ts, seen FROM referrals");
     for (const row of r.rows) {
-      const e = { code: String(row.code), name: String(row.name || ""), parent: String(row.parent || "") };
+      const e = { code: String(row.code), name: String(row.name || ""), parent: String(row.parent || ""),
+                  seen: Number(row.seen || row.ts || Date.now()) };
       referrals.set(String(row.id), e);
       codeToId.set(e.code, String(row.id));
     }
@@ -408,17 +412,21 @@ async function loadReferrals() {
 }
 async function saveReferral(id) {
   const e = referrals.get(id); if (!e) return;
-  try { await scoresDb.execute({ sql: "INSERT OR REPLACE INTO referrals(id, code, name, parent, ts) VALUES(?,?,?,?,?)", args: [id, e.code, e.name, e.parent, Date.now()] }); } catch {}
+  try { await scoresDb.execute({ sql: "INSERT OR REPLACE INTO referrals(id, code, name, parent, ts, seen) VALUES(?,?,?,?,?,?)", args: [id, e.code, e.name, e.parent, Date.now(), e.seen || Date.now()] }); } catch {}
 }
 // Inscrit le joueur (ou met à jour son pseudo) et renvoie son code
 async function ensureReferral(id, name) {
+  const now = Date.now();
   let e = referrals.get(id);
   if (!e) {
-    e = { code: newCode(), name, parent: "" };
+    e = { code: newCode(), name, parent: "", seen: now };
     referrals.set(id, e); codeToId.set(e.code, id);
     await saveReferral(id);
-  } else if (name && e.name !== name) {
-    e.name = name; await saveReferral(id);
+  } else {
+    const stale = now - (e.seen || 0) > 3600_000;     // on n'écrit pas à chaque rafraîchissement
+    const renamed = name && e.name !== name;
+    e.seen = now; if (renamed) e.name = name;
+    if (stale || renamed) await saveReferral(id);
   }
   return e.code;
 }
@@ -456,9 +464,19 @@ async function mergeReferral(accountId, guestId) {
 }
 // Arbre public : on n'expose que les codes (jamais les ids internes)
 function referralTree() {
+  const now = Date.now();
+  const isAccount = (id) => id.startsWith("u:");
+  const active = (id) => { const e = referrals.get(id); if (!e) return false;
+    return isAccount(id) || (now - (e.seen || 0)) < GUEST_TTL; };
+  // on garde les actifs ET leurs ancêtres (pour ne pas couper une branche vivante)
+  const keep = new Set();
+  for (const [id] of referrals) if (active(id)) {
+    for (let p = id, n = 0; p && n < 200; n++) { if (keep.has(p)) break; keep.add(p); p = (referrals.get(p) || {}).parent || ""; }
+  }
   const nodes = [];
-  for (const [id, e] of referrals) {
-    const parentEntry = e.parent ? referrals.get(e.parent) : null;
+  for (const id of keep) {
+    const e = referrals.get(id); if (!e) continue;
+    const parentEntry = e.parent && keep.has(e.parent) ? referrals.get(e.parent) : null;
     nodes.push({ code: e.code, name: e.name || "Joueur", parent: parentEntry ? parentEntry.code : "" });
   }
   return nodes;

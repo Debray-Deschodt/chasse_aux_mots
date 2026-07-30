@@ -77,7 +77,7 @@ body:not(.online) #accountBtn{display:none}
 #animalsModal{z-index:60}
 #treeModal{z-index:60}
 #treeCard{max-height:82vh; display:flex; flex-direction:column; overflow:hidden}
-.treewrap{flex:1 1 auto; min-height:min(52vh,330px); overflow-y:auto; overflow-x:hidden; -webkit-overflow-scrolling:touch; overscroll-behavior:contain; margin:6px 0 12px}
+.treewrap{flex:1 1 auto; min-height:min(40vh,290px); overflow-y:auto; overflow-x:hidden; -webkit-overflow-scrolling:touch; overscroll-behavior:contain; margin:6px 0 12px}
 
 /* Fil d'Ariane : la lignée dans laquelle on navigue */
 .crumbs{display:flex; align-items:center; flex-wrap:wrap; gap:3px 5px; font-size:11px; font-weight:700;
@@ -85,6 +85,10 @@ body:not(.online) #accountBtn{display:none}
 .crumbs .cb{color:var(--magenta); cursor:pointer; border:none; background:none; padding:0; font:inherit; letter-spacing:inherit}
 .crumbs .sep{color:var(--muted)}
 .crumbs .cur{color:var(--muted)}
+.crumbs .mine{margin-left:auto; color:var(--magenta); font-weight:800}
+.treewrap.graph{display:flex; flex-direction:column; overflow:hidden}
+.treewrap.graph .disc{flex:1 1 auto; height:auto !important; min-height:140px}
+.treewrap.graph .tstats, .treewrap.graph .ttabs, .treewrap.graph .discsel{flex:0 0 auto}
 
 /* Le foyer où l'on se trouve */
 .focus{display:flex; align-items:center; gap:11px; padding:12px 13px; border-radius:14px;
@@ -1371,6 +1375,7 @@ const DICT_B64 = "H4sIAAAAAAACA2RdaZPjKBL9Pv9SXWbU7FpWDQLHVP/6DZH5DrwR3cXLkyMTCa
     const tabs = `<div class="ttabs">
       <button class="ttab${treeMode === "all" ? " on":""}" data-mode="all">Vue d'ensemble</button>
       <button class="ttab${treeMode === "focus" ? " on":""}" data-mode="focus">Explorer</button></div>`;
+    wrap.classList.toggle("graph", treeMode === "all");        // vue d'ensemble : pas de défilement, le disque remplit
     wrap.innerHTML = tabs + (treeMode === "all" ? overviewHTML() : focusHTML());
     wrap.querySelectorAll("[data-mode]").forEach((b) => b.onclick = () => { treeMode = b.dataset.mode; renderTree(); });
     wrap.querySelectorAll("[data-go]").forEach((n) => n.onclick = () => { treeFocus = n.dataset.go; treeMode = "focus"; renderTree(); });
@@ -1387,7 +1392,9 @@ const DICT_B64 = "H4sIAAAAAAACA2RdaZPjKBL9Pv9SXWbU7FpWDQLHVP/6DZH5DrwR3cXLkyMTCa
   // Actions propres à chaque onglet : partager (panorama) / revenir chez soi (explorer)
   function renderActions(){
     const bar = el("treeActions"); if (!bar) return;
-    if (treeMode === "all"){
+    if (treeMode === "all"){ bar.innerHTML = ""; bar.style.display = "none"; return; }
+    {
+      bar.style.display = "flex";
       if (!treeLink){ bar.innerHTML = ""; return; }
       bar.innerHTML = (treeCanShare ? `<button class="btn solid" id="refShare">Inviter</button>` : "")
         + `<button class="btn ghost" id="refCopy">Copier le lien</button>`;
@@ -1399,11 +1406,6 @@ const DICT_B64 = "H4sIAAAAAAACA2RdaZPjKBL9Pv9SXWbU7FpWDQLHVP/6DZH5DrwR3cXLkyMTCa
       };
       const sh = el("refShare");
       if (sh) sh.onclick = () => { navigator.share({ title: "Chasse aux mots", text: "Viens jouer avec moi !", url: treeLink }).catch(() => {}); };
-    } else {
-      const mine = NET.code && treeIdx && treeIdx.byCode.has(NET.code);
-      bar.innerHTML = mine && treeFocus !== NET.code ? `<button class="btn ghost" id="refMine">Ma branche</button>` : "";
-      const mn = el("refMine");
-      if (mn) mn.onclick = () => { treeFocus = NET.code; renderTree(); };
     }
   }
 
@@ -1424,12 +1426,13 @@ const DICT_B64 = "H4sIAAAAAAACA2RdaZPjKBL9Pv9SXWbU7FpWDQLHVP/6DZH5DrwR3cXLkyMTCa
   function overviewHTML(){
     if (!treeNodes.length) return `<div class="anhint">Aucun joueur pour l'instant.</div>`;
     const { kids } = treeIdx;
-    const houses = treeNodes.filter((n) => (kids.get(n.code) || []).length).length;
-    const solo = treeNodes.filter((n) => !n.parent || !treeIdx.byCode.has(n.parent)).length;
+    const isRoot = (n) => !n.parent || !treeIdx.byCode.has(n.parent);
+    // une branche = une racine (joueur sans parrain) qui a au moins un filleul
+    const branchCount = treeNodes.filter((n) => isRoot(n) && (kids.get(n.code) || []).length).length;
     let maxDepth = 0;
     for (const n of treeNodes) maxDepth = Math.max(maxDepth, pathTo(n.code).length - 1);
-    return `<div class="tstats">${treeNodes.length} joueurs · ${houses} parrain${houses>1?"s":""} · ${maxDepth + 1} génération${maxDepth?"s":""}${solo > 1 ? ` · ${solo} sans parrain` : ""}</div>
-      <div class="disc" id="disc" style="height:min(56vh,360px)"><div class="dload">Chargement du plan…</div></div>
+    return `<div class="tstats">${treeNodes.length} joueurs · ${branchCount} branche${branchCount>1?"s":""} · ${maxDepth + 1} génération${maxDepth?"s":""}</div>
+      <div class="disc" id="disc" style="height:min(40vh,290px)"><div class="dload">Chargement du plan…</div></div>
       <div class="discsel" id="discSel"><span class="hint">Touche un point pour voir sa lignée, double-touche pour ouvrir sa branche.</span></div>`;
   }
   async function mountGraph(){
@@ -1534,8 +1537,9 @@ const DICT_B64 = "H4sIAAAAAAACA2RdaZPjKBL9Pv9SXWbU7FpWDQLHVP/6DZH5DrwR3cXLkyMTCa
     const sim = d3.forceSimulation(nodes)
       .force("link", d3.forceLink(links).id((d) => d.id).distance(RING * 0.85).strength(.12))
       .force("charge", d3.forceManyBody().strength(-Math.max(30, RING)))
-      .force("sector", d3.forceX((d) => d.tx).strength(.22))   // maintient chaque branche dans son quartier
-      .force("sectorY", d3.forceY((d) => d.ty).strength(.22))
+      // chaque branche reste dans son quartier ; un point déplacé est ancré là où on l'a lâché
+      .force("sector", d3.forceX((d) => d.pinned ? d.ax : d.tx).strength((d) => d.pinned ? .9 : .22))
+      .force("sectorY", d3.forceY((d) => d.pinned ? d.ay : d.ty).strength((d) => d.pinned ? .9 : .22))
       .force("collide", d3.forceCollide((d) => rOf(d) + 6).strength(1).iterations(4))
       .alpha(.7);
 
@@ -1596,9 +1600,18 @@ const DICT_B64 = "H4sIAAAAAAACA2RdaZPjKBL9Pv9SXWbU7FpWDQLHVP/6DZH5DrwR3cXLkyMTCa
 
     // points déplaçables : relâché = épinglé (double-tap pour libérer)
     dot.call(d3.drag()
-      .on("start", (ev, d) => { if (!ev.active) sim.alphaTarget(.25).restart(); d.fx = d.x; d.fy = d.y; })
-      .on("drag", (ev, d) => { d.fx = ev.x; d.fy = ev.y; })
-      .on("end", (ev, d) => { if (!ev.active) sim.alphaTarget(0); d.pinned = true; }));
+      .on("start", (ev, d) => { d.moved = false; })                 // un simple clic ne doit RIEN figer
+      .on("drag", (ev, d) => {
+        if (!d.moved){ d.moved = true; if (!ev.active) sim.alphaTarget(.25).restart(); }
+        d.fx = ev.x; d.fy = ev.y;
+      })
+      .on("end", (ev, d) => {
+        if (!d.moved) return;                                        // clic sans déplacement : le point reste libre
+        if (!ev.active) sim.alphaTarget(0);
+        d.ax = ev.x; d.ay = ev.y; d.pinned = true;                   // ancré ici…
+        d.fx = d.fy = null;                                          // …mais plus figé : la collision s'applique encore
+        sim.alpha(.35).restart();
+      }));
     dot.on("dblclick", (ev, d) => {              // double-clic : ouvre son profil dans Explorer
       ev.stopPropagation(); ev.preventDefault();
       treeFocus = d.id; treeMode = "focus"; treeQuery = ""; renderTree();
@@ -1617,7 +1630,7 @@ const DICT_B64 = "H4sIAAAAAAACA2RdaZPjKBL9Pv9SXWbU7FpWDQLHVP/6DZH5DrwR3cXLkyMTCa
       const g = sel.querySelector("[data-go2]");
       if (g) g.onclick = () => { treeFocus = d.id; treeMode = "focus"; treeQuery = ""; renderTree(); };
       const u = sel.querySelector("[data-unpin]");
-      if (u) u.onclick = () => { d.fx = d.fy = null; d.pinned = false;
+      if (u) u.onclick = () => { d.fx = d.fy = null; d.pinned = false; d.ax = d.ay = null;
         u.remove(); sim.alphaTarget(.2).restart(); setTimeout(() => sim.alphaTarget(0), 600); };
     });
     svg.on("click", () => {
@@ -1685,6 +1698,8 @@ const DICT_B64 = "H4sIAAAAAAACA2RdaZPjKBL9Pv9SXWbU7FpWDQLHVP/6DZH5DrwR3cXLkyMTCa
         ${n ? `<span class="stack">${minis}</span><span class="tag">${n}</span><span class="chev">▶</span>` : ""}
       </div>`;
     }).join("");
+    if (NET.code && treeIdx.byCode.has(NET.code) && treeFocus !== NET.code)
+      crumbs += `<button class="cb mine" data-go="${NET.code}">↩ Ma branche</button>`;
     return `<input class="tsearch" id="treeSearch" type="search" placeholder="Rechercher un joueur" value="${escT(treeQuery)}">`
       + `<div class="tsres" id="tsRes"></div>`
       + `<div class="crumbs">${crumbs}</div>${head}`
@@ -1699,7 +1714,7 @@ const DICT_B64 = "H4sIAAAAAAACA2RdaZPjKBL9Pv9SXWbU7FpWDQLHVP/6DZH5DrwR3cXLkyMTCa
     el("treeCard").innerHTML = `
       <div class="kicker">Communauté</div>
       <h2>L'Arbre</h2>
-      <div class="anhint">L'arbre pousse par le bouche-à-oreille : chaque joueur invité devient une nouvelle branche.</div>
+      <div class="anhint">L'arbre pousse par le bouche-à-oreille.</div>
       <div class="treewrap" id="treeView"><div class="anhint">Chargement…</div></div>
       <div class="refbar" id="treeActions"></div>
       <button class="btn ghost" id="treeClose" style="margin-top:8px">Fermer</button>`;
