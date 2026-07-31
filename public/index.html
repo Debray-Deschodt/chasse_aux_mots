@@ -147,6 +147,13 @@ body:not(.online) #accountBtn{display:none}
 .disc .lbl.hid{display:none}
 .disc .hub{font-family:var(--display); font-size:11px; fill:var(--muted); opacity:.5; text-transform:uppercase; pointer-events:none}
 .dload{display:grid; place-items:center; height:100%; font-size:12px; color:var(--muted)}
+body.noscroll{overflow:hidden}
+.disc.full{position:fixed; inset:0; z-index:80; border-radius:0; border:none; height:auto !important; max-height:none}
+.disc.full .zoomer{right:14px; bottom:calc(14px + env(safe-area-inset-bottom))}
+.discfs{position:absolute; left:14px; top:calc(14px + env(safe-area-inset-top)); z-index:2; display:none;
+  font-family:var(--ui); font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.07em;
+  color:var(--ink); background:var(--panel); border:1.5px solid var(--line); border-radius:999px; padding:9px 14px; cursor:pointer}
+.disc.full .discfs{display:block}
 .zoomer{position:absolute; right:8px; bottom:8px; display:flex; gap:5px}
 .zoomer button{width:30px; height:30px; border-radius:8px; border:1.5px solid var(--line); background:var(--panel);
   color:var(--ink); font-family:var(--ui); font-weight:800; font-size:14px; cursor:pointer; padding:0}
@@ -1430,6 +1437,7 @@ const DICT_B64 = "H4sIAAAAAAACA2RdaZPjKBL9Pv9SXWbU7FpWDQLHVP/6DZH5DrwR3cXLkyMTCa
     return { byCode, kids, roots };
   }
   let treeNodes = [], treeIdx = null, treeFocus = "", treeMode = "all", graphStop = null, treeLink = "", treeCanShare = false, treeQuery = "";
+  let graphPos = new Map(), toggleFullscreen = () => {};       // disposition conservée + bascule plein écran
   const initialOf = (s) => (String(s).trim()[0] || "?").toUpperCase();
   function subtreeSize(code){                                    // nb de descendants (hors soi)
     const { kids } = treeIdx; const all = new Set(); const st = [...(kids.get(code) || [])];
@@ -1449,7 +1457,10 @@ const DICT_B64 = "H4sIAAAAAAACA2RdaZPjKBL9Pv9SXWbU7FpWDQLHVP/6DZH5DrwR3cXLkyMTCa
       <button class="ttab${treeMode === "focus" ? " on":""}" data-mode="focus">Explorer</button></div>`;
     wrap.classList.toggle("graph", treeMode === "all");        // vue d'ensemble : pas de défilement, le disque remplit
     wrap.innerHTML = tabs + (treeMode === "all" ? overviewHTML() : focusHTML());
-    wrap.querySelectorAll("[data-mode]").forEach((b) => b.onclick = () => { treeMode = b.dataset.mode; renderTree(); });
+    wrap.querySelectorAll("[data-mode]").forEach((b) => b.onclick = () => {
+      document.body.classList.remove("noscroll"); graphPos = new Map();
+      treeMode = b.dataset.mode; renderTree();
+    });
     wrap.querySelectorAll("[data-go]").forEach((n) => n.onclick = () => { treeFocus = n.dataset.go; treeMode = "focus"; renderTree(); });
     renderActions();
     if (treeMode === "focus"){
@@ -1571,9 +1582,14 @@ const DICT_B64 = "H4sIAAAAAAACA2RdaZPjKBL9Pv9SXWbU7FpWDQLHVP/6DZH5DrwR3cXLkyMTCa
     // écarte les voisins localement. On évite ainsi un disque géant réduit à un amas au cadrage.
     const RING = Math.max(22, (Math.min(W, H) / 2 - 26) / Math.max(1, maxDepth));
 
+    for (const n of nodes){                                    // on retrouve sa disposition après un basculement
+      const keep = graphPos.get(n.id);
+      if (keep){ n.x = keep.x; n.y = keep.y; if (keep.pinned){ n.pinned = true; n.ax = keep.ax; n.ay = keep.ay; } }
+    }
     const nodeById = new Map(nodes.map((n) => [n.id, n]));
     host.innerHTML = `<svg><g class="scene"><g class="rings"></g><g class="links"></g><g class="dots"></g><g class="labels"></g></g></svg>
-      <div class="zoomer"><button data-z="out">−</button><button data-z="in">+</button><button data-z="fit">⤢</button></div>`;
+      <button class="discfs" id="discExit">✕ Quitter</button>
+      <div class="zoomer"><button data-z="out">−</button><button data-z="in">+</button><button data-z="full" title="Plein écran">⛶</button></div>`;
     const svg = d3.select(host).select("svg").attr("viewBox", `0 0 ${W} ${H}`);
     const scene = svg.select(".scene");
     scene.select(".rings").selectAll("circle")
@@ -1603,16 +1619,17 @@ const DICT_B64 = "H4sIAAAAAAACA2RdaZPjKBL9Pv9SXWbU7FpWDQLHVP/6DZH5DrwR3cXLkyMTCa
       n.x = n.tx; n.y = n.ty;                                  // on démarre déjà démêlé
     }
     const sim = d3.forceSimulation(nodes)
-      .force("link", d3.forceLink(links).id((d) => d.id).distance(RING * 0.85).strength(.12))
+      // les liens tirent nettement : chaque joueur se rapproche de son parrain et de ses filleuls
+      .force("link", d3.forceLink(links).id((d) => d.id).distance(RING * 0.7).strength(.3))
       .force("charge", d3.forceManyBody().strength(-Math.max(30, RING)))
       // chaque branche reste dans son quartier ; un point déplacé est ancré là où on l'a lâché
-      .force("sector", d3.forceX((d) => d.pinned ? d.ax : d.tx).strength((d) => d.pinned ? .9 : .22))
-      .force("sectorY", d3.forceY((d) => d.pinned ? d.ay : d.ty).strength((d) => d.pinned ? .9 : .22))
+      .force("sector", d3.forceX((d) => d.pinned ? d.ax : d.tx).strength((d) => d.pinned ? .9 : .18))
+      .force("sectorY", d3.forceY((d) => d.pinned ? d.ay : d.ty).strength((d) => d.pinned ? .9 : .18))
       .force("collide", d3.forceCollide((d) => rOf(d) + 3).strength(1).iterations(4))
       .alpha(.7);
     // d3 met en cache les cibles et les intensités : à réappliquer dès qu'un point est ancré
     const targetX = (d) => d.pinned ? d.ax : d.tx, targetY = (d) => d.pinned ? d.ay : d.ty;
-    const strengthOf = (d) => d.pinned ? .9 : .22;
+    const strengthOf = (d) => d.pinned ? .9 : .18;
     const refreshAnchors = () => {
       sim.force("sector").x(targetX).strength(strengthOf);
       sim.force("sectorY").y(targetY).strength(strengthOf);
@@ -1679,8 +1696,10 @@ const DICT_B64 = "H4sIAAAAAAACA2RdaZPjKBL9Pv9SXWbU7FpWDQLHVP/6DZH5DrwR3cXLkyMTCa
       ev.stopPropagation();
       if (b.dataset.z === "in") svg.transition().duration(200).call(zoom.scaleBy, 1.5);
       else if (b.dataset.z === "out") svg.transition().duration(200).call(zoom.scaleBy, 0.66);
-      else svg.transition().duration(250).call(zoom.transform, fitT());
+      else toggleFullscreen();                                 // ⛶ : plein écran
     });
+    const exitBtn = el("discExit");
+    if (exitBtn) exitBtn.onclick = (ev) => { ev.stopPropagation(); toggleFullscreen(false); };
 
     // points déplaçables : relâché = épinglé (double-tap pour libérer)
     // Glissé maison, en événements pointeur AVEC CAPTURE : le point saisi continue de recevoir
@@ -1743,6 +1762,15 @@ const DICT_B64 = "H4sIAAAAAAACA2RdaZPjKBL9Pv9SXWbU7FpWDQLHVP/6DZH5DrwR3cXLkyMTCa
       dot.classed("sel", false); selId = ""; lineage = new Set(); paint();
       sel.innerHTML = `<span class="hint">Double-touche un point pour ouvrir sa branche.</span>`;
     });
+    // Plein écran : on remonte le graphe pour qu'il occupe toute la surface,
+    // en conservant la disposition (positions et points ancrés).
+    toggleFullscreen = (want) => {
+      const on = want === undefined ? !host.classList.contains("full") : want;
+      graphPos = new Map(nodes.map((n) => [n.id, { x: n.x, y: n.y, pinned: !!n.pinned, ax: n.ax, ay: n.ay }]));
+      host.classList.toggle("full", on);
+      document.body.classList.toggle("noscroll", on);
+      mountGraph();                                            // recalcule pour la nouvelle taille
+    };
     // on arrête la simulation quand la fenêtre se ferme
     graphStop = () => {
       sim.stop();
@@ -1829,7 +1857,11 @@ const DICT_B64 = "H4sIAAAAAAACA2RdaZPjKBL9Pv9SXWbU7FpWDQLHVP/6DZH5DrwR3cXLkyMTCa
       <div class="treewrap" id="treeView"><div class="anhint">Chargement…</div></div>
       <div class="refbar" id="treeActions"></div>
       <button class="btn ghost" id="treeClose" style="margin-top:8px">Fermer</button>`;
-    el("treeClose").onclick = () => { el("treeModal").hidden = true; if (graphStop) { graphStop(); graphStop = null; } };
+    el("treeClose").onclick = () => {
+      const d = el("disc"); if (d && d.classList.contains("full")) toggleFullscreen(false);
+      document.body.classList.remove("noscroll");
+      el("treeModal").hidden = true; if (graphStop) { graphStop(); graphStop = null; }
+    };
     treeLink = link; treeCanShare = canShare;
 
     try { treeNodes = (await apiGet("/api/referrals")).nodes || []; } catch { treeNodes = []; }
@@ -1839,6 +1871,11 @@ const DICT_B64 = "H4sIAAAAAAACA2RdaZPjKBL9Pv9SXWbU7FpWDQLHVP/6DZH5DrwR3cXLkyMTCa
     renderTree();
   }
   el("treeBtn").onclick = openTree;
+  document.addEventListener("keydown", (ev) => {               // Échap : sortir du plein écran
+    if (ev.key !== "Escape") return;
+    const d = el("disc");
+    if (d && d.classList.contains("full")) toggleFullscreen(false);
+  });
 
   // ---------- Définition d'un mot ----------
   const defCache = new Map();

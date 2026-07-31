@@ -442,6 +442,26 @@ async function linkReferral(id, code) {
   e.parent = parentId;
   await saveReferral(id);
 }
+// Changement de pseudo : l'identité (id) ne bouge pas, mais le nom est recopié à plusieurs
+// endroits (animaux détenus, palmarès, arbre, manche en cours) -> on propage partout.
+async function renameEverywhere(id, name) {
+  if (!id || !name) return;
+  // animaux détenus
+  for (const [animal, h] of animalHolders) {
+    if (h.id === id && h.name !== name) {
+      h.name = name;
+      try { await scoresDb.execute({ sql: "UPDATE animals SET holder_name = ? WHERE name = ?", args: [name, animal] }); } catch {}
+    }
+  }
+  // palmarès (records jour/semaine/toujours)
+  try { await scoresDb.execute({ sql: "UPDATE results SET username = ? WHERE user_id = ?", args: [name, id] }); } catch {}
+  // classements des manches encore en mémoire
+  for (const m of scoresByRound.values()) { const e = m.get(id); if (e) e.username = name; }
+  // arbre de parrainage
+  const r = referrals.get(id);
+  if (r && r.name !== name) { r.name = name; await saveReferral(id); }
+}
+
 // Création de compte / connexion : l'identité invité est reprise par le compte
 // (on garde le parrain ET les filleuls acquis en tant qu'invité)
 async function mergeReferral(accountId, guestId) {
@@ -594,7 +614,9 @@ const server = http.createServer(async (req, res) => {
       players.set(id, { username });
       let code = "", merged = false;
       try {
+        const before = (referrals.get(id) || {}).name;              // pseudo connu jusqu'ici
         code = await ensureReferral(id, username);
+        if (before && before !== username) await renameEverywhere(id, username);
         if (authenticated && typeof body.guestId === "string" && body.guestId.trim())
           merged = await mergeReferral(id, body.guestId.trim());        // le compte reprend l'identité invité
         if (typeof body.ref === "string" && body.ref) await linkReferral(id, body.ref);
