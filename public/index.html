@@ -146,8 +146,15 @@ body.noscroll{overflow:hidden}
 .profhead{display:flex; align-items:center; gap:12px; padding:13px; border:1.5px solid var(--line); border-radius:14px;
   background:var(--board); margin-bottom:14px}
 .profhead.mine{border-color:var(--magenta)}
-.profname{flex:1 1 auto; min-width:0; font-family:var(--display); font-weight:400; font-size:21px; text-transform:uppercase;
-  color:var(--ink); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; text-align:left}
+.profname{flex:1 1 auto; min-width:0; width:100%; font-family:var(--ui); font-weight:700; font-size:17px;
+  color:var(--ink); background:none; border:none; outline:none; padding:0; text-align:left}
+.profname::placeholder{color:var(--muted); font-weight:500}
+.profhead{cursor:text}
+.sugg{display:flex; flex-direction:column; gap:2px; padding:9px 12px; border:1.5px solid var(--line); border-radius:11px;
+  background:var(--panel); margin-bottom:6px; cursor:pointer; text-align:left}
+.sugg .snm{font-size:14px; font-weight:700; color:var(--ink); overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.sugg .ssub{font-size:11px; color:var(--muted)}
+.tsnone{font-size:12px; color:var(--muted); padding:2px 2px 8px; text-align:left}
 .pstats{font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.09em; color:var(--muted); margin:0 0 9px}
 .ptable{display:flex; flex-direction:column; gap:7px}
 .prow{display:flex; align-items:baseline; gap:9px; padding:11px 13px; border:1.5px solid var(--line); border-radius:12px;
@@ -1549,7 +1556,14 @@ const DICT_B64 = "H4sIAAAAAAACA2RdaZPjKBL9Pv9SXWbU7FpWDQLHVP/6DZH5DrwR3cXLkyMTCa
     const cl = el("treeClose");
     if (cl) cl.textContent = treeMode === "all" ? "Fermer" : "← Retour";
     if (treeMode === "all") mountGraph();
-    else loadProfile(treeFocus);
+    else {
+      loadProfile(treeFocus);
+      const inp = el("profSearch");
+      if (inp){
+        inp.oninput = () => renderProfSearch(inp.value);
+        if (!treeFocus) setTimeout(() => inp.focus(), 40);      // arrivée par la loupe : clavier prêt
+      }
+    }
   }
   // Boutons : inviter / copier le lien, sur la vue d'ensemble
   function renderActions(){
@@ -1664,7 +1678,7 @@ const DICT_B64 = "H4sIAAAAAAACA2RdaZPjKBL9Pv9SXWbU7FpWDQLHVP/6DZH5DrwR3cXLkyMTCa
 
     host.innerHTML = `<svg><g class="scene"><g class="hulls"></g><g class="links"></g><g class="dots"></g></g></svg>
       <button class="discfs" id="discExit">✕ Quitter</button>
-      <div class="zoomer"><button data-z="out">−</button><button data-z="in">+</button><button data-z="full" title="Plein écran">⛶</button></div>`;
+      <div class="zoomer"><button data-z="out">−</button><button data-z="in">+</button><button data-z="find" title="Rechercher un joueur">🔍</button><button data-z="full" title="Plein écran">⛶</button></div>`;
     const svg = d3.select(host).select("svg").attr("viewBox", `0 0 ${W} ${H}`);
     const scene = svg.select(".scene");
     const hulls = scene.select(".hulls");
@@ -1804,6 +1818,11 @@ const DICT_B64 = "H4sIAAAAAAACA2RdaZPjKBL9Pv9SXWbU7FpWDQLHVP/6DZH5DrwR3cXLkyMTCa
       ev.stopPropagation();
       if (b.dataset.z === "in") svg.transition().duration(200).call(zoom.scaleBy, 1.5);
       else if (b.dataset.z === "out") svg.transition().duration(200).call(zoom.scaleBy, 0.66);
+      else if (b.dataset.z === "find"){                        // loupe : fiche vide, prête pour la recherche
+        if (host.classList.contains("full")) toggleFullscreen(false);
+        document.body.classList.remove("noscroll");
+        treeFocus = ""; treeMode = "profile"; graphPos = new Map(); renderTree();
+      }
       else toggleFullscreen();
     });
     const exitBtn = el("discExit");
@@ -1881,12 +1900,11 @@ const DICT_B64 = "H4sIAAAAAAACA2RdaZPjKBL9Pv9SXWbU7FpWDQLHVP/6DZH5DrwR3cXLkyMTCa
       window.removeEventListener("pointercancel", endDrag);
     };
   }
-  // ---- Fiche d'un joueur : sa lignée en fil d'Ariane, puis ses records ----
+  // ---- Fiche d'un joueur : recherche par pseudo, lignée, puis records ----
   function profileHTML(){
     const { byCode } = treeIdx;
-    const e = byCode.get(treeFocus);
-    if (!e) return `<div class="anhint">Joueur introuvable.</div>`;
-    const path = pathTo(treeFocus);
+    const e = treeFocus ? byCode.get(treeFocus) : null;
+    const path = e ? pathTo(treeFocus) : [];
     let crumbs = `<button class="cb" data-go="">Communauté</button>`;
     path.forEach((n, i) => {
       const last = i === path.length - 1;
@@ -1894,12 +1912,37 @@ const DICT_B64 = "H4sIAAAAAAACA2RdaZPjKBL9Pv9SXWbU7FpWDQLHVP/6DZH5DrwR3cXLkyMTCa
         ? `<span class="cur">${escT(n.name)}</span>`
         : `<button class="cb" data-go="${n.code}">${escT(n.name)}</button>`);
     });
-    const me = NET.code === treeFocus;
+    const me = e && NET.code === treeFocus;
     return `<div class="crumbs">${crumbs}</div>
       <div class="profhead${me ? " mine" : ""}">
-        <span class="profname">${escT(e.name)}</span>
+        <input class="profname" id="profSearch" type="search" autocomplete="off"
+               placeholder="Rechercher un joueur" value="${e ? escT(e.name) : ""}">
       </div>
-      <div id="profBody"><div class="anhint">Chargement des records…</div></div>`;
+      <div class="tsres" id="profRes"></div>
+      <div id="profBody">${e ? `<div class="anhint">Chargement des records…</div>`
+        : `<div class="anhint">Tape un pseudo pour voir ses records.</div>`}</div>`;
+  }
+  // Suggestions de pseudos (sans accents, insensible à la casse)
+  function renderProfSearch(q){
+    const box = el("profRes"); if (!box || !treeIdx) return;
+    const t = q.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+    const cur = treeFocus ? (treeIdx.byCode.get(treeFocus) || {}).name : "";
+    if (!t || t === String(cur).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase()){ box.innerHTML = ""; return; }
+    const hits = treeNodes
+      .filter((n) => n.name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().includes(t))
+      .sort((a, b) => subtreeSize(b.code) - subtreeSize(a.code))
+      .slice(0, 8);
+    if (!hits.length){ box.innerHTML = `<div class="tsnone">Aucun joueur à ce nom.</div>`; return; }
+    box.innerHTML = hits.map((n) => {
+      const parent = n.parent && treeIdx.byCode.get(n.parent);
+      return `<div class="sugg" data-pick="${n.code}">
+        <span class="snm">${escT(n.name)}</span>
+        ${parent ? `<span class="ssub">invité par ${escT(parent.name)}</span>` : `<span class="ssub">sans parrain</span>`}
+      </div>`;
+    }).join("");
+    box.querySelectorAll("[data-pick]").forEach((n) => n.onclick = () => {
+      treeFocus = n.dataset.pick; treeMode = "profile"; renderTree();
+    });
   }
   const profCache = new Map();
   async function loadProfile(code){
