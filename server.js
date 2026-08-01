@@ -660,6 +660,40 @@ const server = http.createServer(async (req, res) => {
       return send(res, 200, { mot, defs: Array.isArray(def) ? def : [] });
     }
 
+    // Fiche d'un joueur : ses records jour / semaine / toujours
+    if (req.method === "GET" && pathname === "/api/player") {
+      const code = String(searchParams.get("code") || "").toUpperCase().trim();
+      const id = codeToId.get(code);
+      if (!id) return send(res, 404, { error: "unknown" });
+      await flushFinishedRounds().catch(() => {});
+      const e = referrals.get(id) || {};
+      const w = windows();
+      const best = async (since) => {
+        try {
+          const r = await scoresDb.execute({
+            sql: `SELECT score, found, total, ts FROM results
+                  WHERE user_id = ? AND ts >= ? AND score > 0 ORDER BY score DESC LIMIT 1`,
+            args: [id, since],
+          });
+          if (!r.rows.length) return null;
+          const x = r.rows[0];
+          return { score: Number(x.score), found: Number(x.found), total: Number(x.total), ts: Number(x.ts) };
+        } catch { return null; }
+      };
+      const played = async (since) => {
+        try {
+          const r = await scoresDb.execute({
+            sql: `SELECT COUNT(*) AS n FROM results WHERE user_id = ? AND ts >= ? AND score > 0`,
+            args: [id, since],
+          });
+          return Number(r.rows[0] ? r.rows[0].n : 0);
+        } catch { return 0; }
+      };
+      const [day, week, all, nAll] = await Promise.all([best(w.day), best(w.week), best(w.all), played(w.all)]);
+      const emojis = emojisFor(id);
+      return send(res, 200, { code, name: e.name || "Joueur", day, week, all, rounds: nAll, emojis });
+    }
+
     // Arbre de parrainage (qui a ramené qui)
     if (req.method === "GET" && pathname === "/api/referrals") {
       return send(res, 200, { nodes: referralTree() });
