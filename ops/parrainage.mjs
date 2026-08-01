@@ -14,6 +14,7 @@
 //                                                        à son propre parrain)
 //   node ops/parrainage.mjs del "Pseudo" --detacher   -> idem, mais ses filleuls deviennent souches
 //   node ops/parrainage.mjs arbre                     -> affiche l'arbre
+//   node ops/parrainage.mjs stats "Pseudo"            -> parties jouées et records d'un joueur
 //
 // Les pseudos peuvent être partiels (recherche insensible à la casse et aux accents),
 // mais doivent désigner UN SEUL joueur, sinon la commande s'arrête et liste les candidats.
@@ -264,6 +265,44 @@ if (!cmd || cmd === "list") {
   await db.execute({ sql: "UPDATE referrals SET parent = '' WHERE id = ?", args: [filleul.id] });
   console.log(`✓ ${filleul.name} n'a plus de parrain (souche)`);
   await rechargerServeur();
+} else if (cmd === "stats") {
+  if (!a) { console.error('Usage : node ops/parrainage.mjs stats "Pseudo"'); process.exit(1); }
+  const j = trouver(gens, a, "stats");
+  const mails = await emails();
+  const jour = new Date(); jour.setHours(0, 0, 0, 0);
+  const lundi = new Date(jour); lundi.setDate(jour.getDate() - ((jour.getDay() + 6) % 7));
+  const bloc = async (titre, depuis) => {
+    const r = await db.execute({
+      sql: `SELECT COUNT(*) AS n, MAX(score) AS best, AVG(score) AS moy, SUM(found) AS mots
+            FROM results WHERE user_id = ? AND ts >= ? AND score > 0`,
+      args: [j.id, depuis],
+    });
+    const x = r.rows[0] || {};
+    const n = Number(x.n || 0);
+    console.log(`  ${titre.padEnd(16)} ${String(n).padStart(4)} partie(s)` +
+      (n ? `   record ${String(Number(x.best)).padStart(4)}   moyenne ${String(Math.round(Number(x.moy))).padStart(4)}   ${Number(x.mots || 0)} mots trouvés` : ""));
+  };
+  const bornes = await db.execute({
+    sql: `SELECT MIN(ts) AS first, MAX(ts) AS last FROM results WHERE user_id = ? AND score > 0`,
+    args: [j.id],
+  });
+  const b = bornes.rows[0] || {};
+  const mail = mails.get(j.id) || (j.id.startsWith("u:") ? "—" : "(invité)");
+  const parrain = j.parent && gens.find((g) => g.id === j.parent);
+  const filleuls = gens.filter((g) => g.parent === j.id);
+  console.log(`\n${j.name}   ${mail}   code ${j.code}`);
+  console.log(`${parrain ? "invité par " + parrain.name : "sans parrain"}` +
+    (filleuls.length ? `   ·   a invité ${filleuls.map((f) => f.name).join(", ")}` : "   ·   n'a invité personne"));
+  console.log("");
+  await bloc("Aujourd'hui", jour.getTime());
+  await bloc("Cette semaine", lundi.getTime());
+  await bloc("Depuis toujours", 0);
+  if (b.first) {
+    console.log(`\n  première partie : ${new Date(Number(b.first)).toLocaleDateString("fr-FR")}` +
+      `   ·   dernière : ${new Date(Number(b.last)).toLocaleDateString("fr-FR")}`);
+  } else {
+    console.log("\n  (aucune partie enregistrée)");
+  }
 } else if (cmd === "del" || cmd === "supprimer") {
   if (!a) { console.error("Usage : node ops/parrainage.mjs del \"Pseudo\" [--detacher]"); process.exit(1); }
   const cible = trouver(gens, a, "del");
@@ -282,6 +321,6 @@ if (!cmd || cmd === "list") {
   console.log("  Note : elle sera recréée automatiquement, sans parrain, à sa prochaine connexion.");
   await rechargerServeur();
 } else {
-  console.error(`Commande inconnue : ${cmd}\nUtilise : import | invite | list | orphelins | arbre | set | unset | del`);
+  console.error(`Commande inconnue : ${cmd}\nUtilise : import | invite | list | orphelins | arbre | stats | set | unset | del`);
   process.exit(1);
 }

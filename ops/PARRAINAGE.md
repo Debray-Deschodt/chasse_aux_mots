@@ -53,6 +53,7 @@ lorsqu'un joueur se connecte.
 | `node ops/parrainage.mjs list` | Tous les joueurs : pseudo, e-mail, code, dernière visite, parrain |
 | `node ops/parrainage.mjs orphelins` | Ceux qui n'ont pas encore de parrain (avec e-mail) |
 | `node ops/parrainage.mjs arbre` | L'arbre complet, en indentation |
+| `node ops/parrainage.mjs stats "Pseudo"` | Parties jouées et records d'un joueur |
 | `node ops/parrainage.mjs set "Filleul" "Parrain"` | Rattache Filleul à Parrain |
 | `node ops/parrainage.mjs unset "Filleul"` | Le détache (il redevient une souche) |
 | `node ops/parrainage.mjs del "Pseudo"` | Supprime sa fiche ; ses filleuls remontent à son parrain |
@@ -115,6 +116,26 @@ nombre de parties et leur dernière visite :
 ```
 
 Choisis en général celui qui a le plus de parties et la visite la plus récente.
+
+### Voir l'activité d'un joueur
+
+```bash
+node ops/parrainage.mjs stats "Léna"
+```
+
+```
+Léna   (invité)   code AUX3G4
+invité par MoulinexTurbo100   ·   a invité Rafik
+
+  Aujourd'hui         2 partie(s)   record  320   moyenne  260   47 mots trouvés
+  Cette semaine       8 partie(s)   record  410   moyenne  239   176 mots trouvés
+  Depuis toujours    11 partie(s)   record  410   moyenne  240   237 mots trouvés
+
+  première partie : 22/07/2026   ·   dernière : 01/08/2026
+```
+
+Pratique aussi pour départager un doublon : c'est la fiche avec le plus de parties qu'il
+faut garder.
 
 ### Supprimer un doublon
 
