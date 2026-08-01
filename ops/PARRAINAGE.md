@@ -47,7 +47,9 @@ lorsqu'un joueur se connecte.
 | Commande | Effet |
 |---|---|
 | `node ops/parrainage.mjs import` | Crée les fiches des **comptes** existants |
-| `node ops/parrainage.mjs import --invites` | Y ajoute les invités ayant déjà marqué |
+| `node ops/parrainage.mjs import --invites` | Y ajoute **tous** les invités ayant déjà marqué |
+| `node ops/parrainage.mjs invite "Pseudo"` | Importe **un seul** invité |
+| `node ops/parrainage.mjs invite --id "<user_id>"` | Idem, quand plusieurs invités portent ce pseudo |
 | `node ops/parrainage.mjs list` | Tous les joueurs : pseudo, e-mail, code, dernière visite, parrain |
 | `node ops/parrainage.mjs orphelins` | Ceux qui n'ont pas encore de parrain (avec e-mail) |
 | `node ops/parrainage.mjs arbre` | L'arbre complet, en indentation |
@@ -86,6 +88,30 @@ quand de nouveaux comptes apparaissent.
 ```bash
 node ops/parrainage.mjs set "Rafik" "Léna"   # il suffit de réaffecter, pas besoin de détacher
 ```
+
+### Rattacher un invité en particulier
+
+Plutôt que d'importer tous les invités, tu peux n'en faire venir qu'un :
+
+```bash
+node ops/parrainage.mjs invite "Rafik"
+node ops/parrainage.mjs set "Rafik" "Léna"
+```
+
+Si deux invités portent le même pseudo (le même joueur depuis deux appareils, ou deux
+personnes homonymes), la commande refuse de deviner et te montre les candidats avec leur
+nombre de parties et leur dernière visite :
+
+```
+✗ 2 invités correspondent à « Léna ». Précise avec --id :
+
+    Léna                     5 partie(s), vu le 01/08/2026
+      node ops/parrainage.mjs invite --id "g-111"
+    Léna                     1 partie(s), vu le 01/08/2026
+      node ops/parrainage.mjs invite --id "g-444"
+```
+
+Choisis en général celui qui a le plus de parties et la visite la plus récente.
 
 ### Nouveau joueur à rattacher
 

@@ -4,6 +4,8 @@
 //   node ops/parrainage.mjs import                    -> crée les fiches des COMPTES existants
 //                                                        (avant même qu'ils se reconnectent)
 //   node ops/parrainage.mjs import --invites          -> y ajoute les invités ayant déjà joué
+//   node ops/parrainage.mjs invite "Pseudo"           -> importe UN invité précis
+//   node ops/parrainage.mjs invite --id "<user_id>"   -> idem, quand le pseudo est ambigu
 //   node ops/parrainage.mjs list                      -> tous les joueurs connus
 //   node ops/parrainage.mjs orphelins                 -> ceux qui n'ont pas encore de parrain
 //   node ops/parrainage.mjs set "Filleul" "Parrain"   -> rattache Filleul à Parrain
@@ -153,7 +155,61 @@ function rechargerServeur() {
   });
 }
 
+// Importe un seul invité, désigné par son pseudo (ou son identifiant si ambigu).
+async function importerInvite(q, parId) {
+  const existants = await all();
+  const connus = new Set(existants.map((g) => g.id));
+  const codes = new Set(existants.map((g) => g.code));
+  let cands = [];
+  try {
+    const r = await db.execute(
+      `SELECT user_id AS id, username AS name, COUNT(*) AS parties, MAX(ts) AS seen FROM results
+       WHERE user_id IS NOT NULL AND user_id <> '' AND user_id NOT LIKE 'u:%' GROUP BY user_id`);
+    cands = r.rows.map((x) => ({ id: String(x.id), name: String(x.name || "Joueur"),
+      parties: Number(x.parties || 0), seen: Number(x.seen || 0) }));
+  } catch (e) { console.error("✗ Lecture de results impossible :", e.message); process.exit(1); }
+
+  let hits;
+  if (parId) hits = cands.filter((c) => c.id === q);
+  else {
+    const t = deacc(q).trim();
+    const exact = cands.filter((c) => deacc(c.name) === t);
+    hits = exact.length ? exact : cands.filter((c) => deacc(c.name).includes(t));
+  }
+  if (!hits.length) {
+    console.error(`✗ Aucun invité ne correspond à « ${q} ».`);
+    console.error("  (un invité n'apparaît qu'après avoir marqué au moins un point)");
+    process.exit(1);
+  }
+  if (hits.length > 1) {
+    // Même pseudo sur plusieurs appareils : à toi de choisir lequel garder.
+    console.error(`✗ ${hits.length} invités correspondent à « ${q} ». Précise avec --id :\n`);
+    for (const h of hits.sort((x, y) => y.seen - x.seen)) {
+      const vu = h.seen ? new Date(h.seen).toLocaleDateString("fr-FR") : "?";
+      console.error(`    ${h.name.padEnd(24)} ${h.parties} partie(s), vu le ${vu}`);
+      console.error(`      node ops/parrainage.mjs invite --id "${h.id}"`);
+    }
+    process.exit(1);
+  }
+  const inv = hits[0];
+  if (connus.has(inv.id)) { console.log(`• ${inv.name} a déjà une fiche, rien à faire.`); return; }
+  const code = nouveauCode(codes);
+  await db.execute({
+    sql: "INSERT INTO referrals(id, code, name, parent, ts, seen) VALUES(?,?,?,?,?,?)",
+    args: [inv.id, code, inv.name, "", Date.now(), inv.seen || Date.now()],
+  });
+  console.log(`✓ Invité « ${inv.name} » importé (code ${code}, ${inv.parties} partie(s))`);
+  await rechargerServeur();
+}
+
 const [cmd, a, b] = process.argv.slice(2);
+if (cmd === "invite") {
+  const parId = process.argv.includes("--id");
+  const q = parId ? process.argv[process.argv.indexOf("--id") + 1] : a;
+  if (!q) { console.error('Usage : node ops/parrainage.mjs invite "Pseudo"   |   invite --id "<user_id>"'); process.exit(1); }
+  await importerInvite(q, parId);
+  process.exit(0);
+}
 if (cmd === "import") { await importer(process.argv.includes("--invites")); await rechargerServeur(); process.exit(0); }
 const gens = await all();
 
@@ -215,6 +271,6 @@ if (!cmd || cmd === "list") {
   console.log("  Note : elle sera recréée automatiquement, sans parrain, à sa prochaine connexion.");
   await rechargerServeur();
 } else {
-  console.error(`Commande inconnue : ${cmd}\nUtilise : import | list | orphelins | arbre | set | unset | del`);
+  console.error(`Commande inconnue : ${cmd}\nUtilise : import | invite | list | orphelins | arbre | set | unset | del`);
   process.exit(1);
 }
