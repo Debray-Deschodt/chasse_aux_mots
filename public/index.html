@@ -83,10 +83,7 @@ body:not(.online) #accountBtn{display:none}
 #settingsModal{z-index:60}
 #animalsModal{z-index:60}
 #treeModal{z-index:60}
-/* La Basse-cour prend une taille proportionnelle à l'écran (largeur ET hauteur) ;
-   à l'intérieur, le graphe occupe toute la place restante. */
-#treeCard{width:min(96vw, 860px); max-width:none; height:min(92vh, 100dvh - 44px); max-height:min(92vh, 100dvh - 44px);
-  display:flex; flex-direction:column; overflow:hidden}
+#treeCard{height:min(92vh, 100dvh - 44px); max-height:min(92vh, 100dvh - 44px); display:flex; flex-direction:column; overflow:hidden}
 #treeCard .kicker, #treeCard h2, #treeCard .anhint, #treeCard .refbar, #treeCard #treeClose{flex:0 0 auto}
 .treewrap{flex:1 1 auto; min-height:0; overflow-y:auto; overflow-x:hidden; -webkit-overflow-scrolling:touch; overscroll-behavior:contain; margin:6px 0 12px}
 
@@ -177,7 +174,6 @@ body.noscroll{overflow:hidden}
 .discsel .go{font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:.07em; color:#fff; background:var(--magenta);
   border:none; border-radius:999px; padding:7px 11px; cursor:pointer}
 .discsel .hint{font-size:11px; color:var(--muted)}
-.discsel .selemo{font-size:19px; flex:0 0 auto}
 .tsearch{width:100%; padding:10px 12px; border:1.5px solid var(--line); border-radius:11px; background:var(--panel);
   color:var(--ink); font-family:var(--ui); font-weight:600; font-size:13px; margin-bottom:9px}
 .tsearch::placeholder{color:var(--muted); font-weight:500}
@@ -281,10 +277,10 @@ body:not(.online) #recordsBtn{display:none}
 .toast.no{border-color:var(--line)} .toast.no b{color:var(--muted)}
 .toast.burn{background:#ffe7ef; border-color:var(--magenta)} .toast.burn b{color:var(--magenta)}
 
+/* Toutes les fenêtres ont le même voile translucide flouté que le bilan d'entre-deux-manches */
 .overlay{position:fixed; inset:0; z-index:50; display:flex; align-items:center; justify-content:center; padding:22px;
-  background:radial-gradient(120% 80% at 50% -10%, #fbf7ee 0%, var(--bg) 55%, #ece3d1 100%)}
+  background:rgba(24,22,19,.34); -webkit-backdrop-filter:blur(12px); backdrop-filter:blur(12px)}
 .overlay[hidden]{display:none}
-.overlay.breakbg{background:rgba(24,22,19,.34); -webkit-backdrop-filter:blur(12px); backdrop-filter:blur(12px)}
 .card{width:100%; max-width:380px; max-height:92vh; overflow:auto; -webkit-overflow-scrolling:touch; overscroll-behavior:contain; background:var(--panel); border:1.5px solid var(--line); border-radius:18px;
   padding:26px 22px; box-shadow:0 24px 50px -22px rgba(25,22,19,.5); text-align:center}
 .card.breakcard{display:flex; flex-direction:column; overflow:hidden; position:relative; max-height:88vh}
@@ -340,7 +336,6 @@ body:not(.online) #recordsBtn{display:none}
   color-scheme:dark;
 }
 [data-theme="dark"] body{background:radial-gradient(120% 80% at 50% -10%, #1d1913 0%, var(--bg) 55%, #0e0c09 100%)}
-[data-theme="dark"] .overlay:not(.breakbg):not(.minimized){background:radial-gradient(120% 80% at 50% -10%, #1d1913 0%, var(--bg) 55%, #0e0c09 100%)}
 [data-theme="dark"] .icobtn,
 [data-theme="dark"] .btn.ghost,
 [data-theme="dark"] .rtab,
@@ -1886,8 +1881,7 @@ const DICT_B64 = "H4sIAAAAAAACA2RdaZPjKBL9Pv9SXWbU7FpWDQLHVP/6DZH5DrwR3cXLkyMTCa
       node.select("circle").classed("sel", false);
       d3.select(ev.currentTarget).select("circle").classed("sel", true);
       selId = d.id; lineage = lineageOf(d.id); paint();
-      sel.innerHTML = `<span class="selemo">${d.emoji}</span>`
-        + `<span class="nm">${escT(d.name)}${d.size ? ` · ${d.size} dans sa lignée` : ""}</span>`
+      sel.innerHTML = `<span class="nm">${escT(d.name)}${d.size ? ` · ${d.size} dans sa lignée` : ""}</span>`
         + `<button class="go" data-go2="${d.id}">Explorer</button>`;
       const g = sel.querySelector("[data-go2]");
       if (g) g.onclick = () => { treeFocus = d.id; treeMode = "focus"; treeQuery = ""; renderTree(); };
