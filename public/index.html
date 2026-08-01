@@ -244,6 +244,10 @@ body:not(.online) #recordsBtn{display:none}
 
 .btn{font-family:var(--ui); font-weight:700; font-size:14px; text-transform:uppercase; letter-spacing:.04em;
   text-indent:.04em; padding:14px; border-radius:11px; cursor:pointer; border:none}
+/* Bouton avec icône dessinée : contrairement à un caractère (←), sa hauteur est prévisible,
+   donc elle se centre exactement sur le texte. Ciblé pour ne pas élargir les autres boutons. */
+.btn.withico{display:inline-flex; align-items:center; justify-content:center; gap:7px; text-indent:0}
+.bico{width:1em; height:1em; flex:0 0 auto; display:block}
 .btn:active{transform:translateY(1px)}
 .btn.ghost{background:#fff; color:var(--ink); border:1.5px solid var(--line)}
 .btn.primary{background:var(--magenta); color:#fff}
@@ -1561,7 +1565,13 @@ const DICT_B64 = "H4sIAAAAAAACA2RdaZPjKBL9Pv9SXWbU7FpWDQLHVP/6DZH5DrwR3cXLkyMTCa
     });
     renderActions();
     const cl = el("treeClose");
-    if (cl) cl.textContent = treeMode === "all" ? "Fermer" : "← Retour";
+    if (cl){
+      const back = treeMode !== "all";
+      cl.classList.toggle("withico", back);
+      cl.innerHTML = back
+        ? `<svg class="bico" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 4 L7 12 L15 20" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>Retour`
+        : "Fermer";
+    }
     if (treeMode === "all") mountGraph();
     else {
       loadProfile(treeFocus);
