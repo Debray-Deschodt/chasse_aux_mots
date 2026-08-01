@@ -104,6 +104,7 @@ body:not(.online) #accountBtn{display:none}
 .refbar .btn{flex:1 1 0; min-width:0; padding:12px 6px; font-size:12px; letter-spacing:.02em; white-space:nowrap;
   overflow:hidden; text-overflow:ellipsis}
 .refbar .btn.solid{background:var(--magenta); color:#fff; border:none}
+.refbar .btn[disabled]{opacity:.45; cursor:not-allowed}
 
 /* Onglets : panorama / navigation */
 .tstats{font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.09em; color:var(--muted); margin:0 0 9px}
@@ -172,6 +173,7 @@ body.noscroll{overflow:hidden}
 .pemos{margin-top:12px; font-size:22px; letter-spacing:2px}
 #animalsCard{max-height:82vh; display:flex; flex-direction:column; overflow:hidden}
 .anhint{font-size:13px; color:var(--muted); margin:2px 0 8px}
+.anhint.warn{color:var(--magenta); font-weight:600}
 .animalist{flex:1 1 auto; min-height:80px; overflow:auto; -webkit-overflow-scrolling:touch; overscroll-behavior:contain; margin-bottom:14px}
 .anrow{display:flex; align-items:center; gap:12px; padding:8px 2px; border-bottom:1px solid var(--line)}
 .anrow .emo{font-size:23px; width:28px; text-align:center; flex:0 0 auto}
@@ -1590,6 +1592,14 @@ const DICT_B64 = "H4sIAAAAAAACA2RdaZPjKBL9Pv9SXWbU7FpWDQLHVP/6DZH5DrwR3cXLkyMTCa
     const bar = el("treeActions"); if (!bar) return;
     if (treeMode !== "all" || !treeLink){ bar.innerHTML = ""; bar.style.display = "none"; return; }
     bar.style.display = "flex";
+    if (!NET.authenticated){
+      // Sans compte, le lien serait attaché à une identité liée au navigateur : elle
+      // disparaîtrait au premier vide-cache, et le joueur n'apparaît pas dans la basse-cour.
+      bar.innerHTML = `<button class="btn solid" disabled>Partager à un ami</button>`
+        + `<button class="btn ghost" id="refSignup">Créer un compte</button>`;
+      el("refSignup").onclick = () => { el("treeModal").hidden = true; openAuth("signup"); };
+      return;
+    }
     bar.innerHTML = `<button class="btn solid" id="refShare">Partager à un ami</button>`;
     const sh = el("refShare");
     sh.onclick = async () => {                                 // partage natif si possible, copie sinon
@@ -1994,7 +2004,7 @@ const DICT_B64 = "H4sIAAAAAAACA2RdaZPjKBL9Pv9SXWbU7FpWDQLHVP/6DZH5DrwR3cXLkyMTCa
     el("treeCard").innerHTML = `
       <div class="kicker">Communauté</div>
       <h2>La Basse-cour</h2>
-      <div class="anhint">Elle s'agrandit par le bouche-à-oreille : chaque joueur invité s'ajoute à ta meute.</div>
+      <div class="anhint" id="treeIntro">Elle s'agrandit par le bouche-à-oreille : chaque joueur invité s'ajoute à ta meute.</div>
       <div class="treewrap" id="treeView"><div class="anhint">Chargement…</div></div>
       <div class="refbar" id="treeActions"></div>
       <button class="btn ghost" id="treeClose" style="margin-top:8px">Fermer</button>`;
@@ -2010,6 +2020,11 @@ const DICT_B64 = "H4sIAAAAAAACA2RdaZPjKBL9Pv9SXWbU7FpWDQLHVP/6DZH5DrwR3cXLkyMTCa
 
     try { treeNodes = (await apiGet("/api/referrals")).nodes || []; } catch { treeNodes = []; }
     treeIdx = buildHouses(treeNodes);
+    const intro = el("treeIntro");
+    if (intro && NET.code && !treeIdx.byCode.has(NET.code)){        // invité : absent de l'arbre
+      intro.innerHTML = `Crée un compte pour apparaître dans la basse-cour et garder ta meute.`;
+      intro.classList.add("warn");
+    }
     treeFocus = NET.code && treeIdx.byCode.has(NET.code) ? NET.code : "";
     treeMode = "all";                                  // on ouvre sur la vue d'ensemble
     renderTree();
