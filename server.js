@@ -395,8 +395,6 @@ function newCode() {
   }
   return "P" + Date.now().toString(36).toUpperCase().slice(-6);
 }
-// Un invité qui n'est pas revenu depuis ce délai disparaît de l'arbre (sauf s'il a parrainé quelqu'un d'actif)
-const GUEST_TTL = Number(process.env.GUEST_TTL_DAYS || 30) * 86400_000;
 async function loadReferrals() {
   await scoresDb.execute(`CREATE TABLE IF NOT EXISTS referrals(
     id TEXT PRIMARY KEY, code TEXT UNIQUE, name TEXT, parent TEXT, ts INTEGER, seen INTEGER)`);
@@ -485,21 +483,28 @@ async function mergeReferral(accountId, guestId) {
   return true;
 }
 // Arbre public : on n'expose que les codes (jamais les ids internes)
+// Arbre public : SEULS LES COMPTES y figurent. Les invités gardent une fiche interne
+// (elle porte leur parrain et leurs filleuls, et sera reprise s'ils créent un compte),
+// mais ils n'apparaissent pas dans la Basse-cour : leur identité tient à un navigateur,
+// donc elle disparaîtrait au premier vide-cache ou changement d'appareil.
+const isAccount = (id) => String(id).startsWith("u:");
 function referralTree() {
-  const now = Date.now();
-  const isAccount = (id) => id.startsWith("u:");
-  const active = (id) => { const e = referrals.get(id); if (!e) return false;
-    return isAccount(id) || (now - (e.seen || 0)) < GUEST_TTL; };
-  // on garde les actifs ET leurs ancêtres (pour ne pas couper une branche vivante)
-  const keep = new Set();
-  for (const [id] of referrals) if (active(id)) {
-    for (let p = id, n = 0; p && n < 200; n++) { if (keep.has(p)) break; keep.add(p); p = (referrals.get(p) || {}).parent || ""; }
-  }
+  // Premier ancêtre qui est un compte : on « saute » les invités intermédiaires
+  // pour ne pas couper une branche en deux.
+  const parentCompte = (id) => {
+    let p = (referrals.get(id) || {}).parent || "";
+    for (let n = 0; p && n < 200; n++) {
+      if (isAccount(p)) return p;
+      p = (referrals.get(p) || {}).parent || "";
+    }
+    return "";
+  };
   const nodes = [];
-  for (const id of keep) {
-    const e = referrals.get(id); if (!e) continue;
-    const parentEntry = e.parent && keep.has(e.parent) ? referrals.get(e.parent) : null;
-    nodes.push({ code: e.code, name: e.name || "Joueur", parent: parentEntry ? parentEntry.code : "" });
+  for (const [id, e] of referrals) {
+    if (!isAccount(id)) continue;
+    const pid = parentCompte(id);
+    const pe = pid ? referrals.get(pid) : null;
+    nodes.push({ code: e.code, name: e.name || "Joueur", parent: pe ? pe.code : "" });
   }
   return nodes;
 }
