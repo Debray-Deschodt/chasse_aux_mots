@@ -369,6 +369,7 @@ async function loadAnimals() {
   await scoresDb.execute(`CREATE TABLE IF NOT EXISTS animals(name TEXT PRIMARY KEY, holder_id TEXT, holder_name TEXT, ts INTEGER)`);
   try {
     const r = await scoresDb.execute("SELECT name, holder_id, holder_name FROM animals");
+    animalHolders.clear();
     for (const row of r.rows) animalHolders.set(String(row.name), { id: String(row.holder_id || ""), name: String(row.holder_name || "") });
   } catch {}
 }
@@ -402,6 +403,7 @@ async function loadReferrals() {
   try { await scoresDb.execute("ALTER TABLE referrals ADD COLUMN seen INTEGER"); } catch {}   // bases déjà créées
   try {
     const r = await scoresDb.execute("SELECT id, code, name, parent, ts, seen FROM referrals");
+    referrals.clear(); codeToId.clear();                       // rechargement complet
     for (const row of r.rows) {
       const e = { code: String(row.code), name: String(row.name || ""), parent: String(row.parent || ""),
                   seen: Number(row.seen || row.ts || Date.now()) };
@@ -508,6 +510,7 @@ async function loadAnimalPrefs() {
   await scoresDb.execute(`CREATE TABLE IF NOT EXISTS animal_prefs(id TEXT PRIMARY KEY, hidden TEXT, ts INTEGER)`);
   try {
     const r = await scoresDb.execute("SELECT id, hidden FROM animal_prefs");
+    hiddenAnimals.clear();
     for (const row of r.rows) { try { hiddenAnimals.set(String(row.id), new Set(JSON.parse(row.hidden || "[]"))); } catch {} }
   } catch {}
 }
@@ -754,6 +757,17 @@ try {
 } catch (e) {
   console.error("⚠ Base de scores :", e.message);
 }
+
+// Rechargement à chaud : `pm2 sendSignal SIGHUP <app>` après une modification manuelle
+// de la base (ops/parrainage.mjs). Évite de couper le service.
+process.on("SIGHUP", async () => {
+  try {
+    await loadReferrals();
+    await loadAnimals();
+    await loadAnimalPrefs();
+    console.log(`↻ Rechargé depuis la base : ${referrals.size} joueur(s), ${animalHolders.size} animal/animaux attribué(s)`);
+  } catch (e) { console.error("⚠ Rechargement impossible :", e.message); }
+});
 
 server.listen(PORT, () => {
   const g = process.env.GOOGLE_CLIENT_ID ? "email + Google" : "email (Google non configuré)";

@@ -16,10 +16,12 @@
 // Les pseudos peuvent être partiels (recherche insensible à la casse et aux accents),
 // mais doivent désigner UN SEUL joueur, sinon la commande s'arrête et liste les candidats.
 //
-// IMPORTANT : arrête le serveur avant de modifier, puis redémarre-le.
-// Il garde les liens en mémoire et réécrirait tes changements sinon.
+// Pas besoin de couper le serveur : après chaque modification, le script lui envoie un
+// signal pour qu'il relise la base (pm2 sendSignal SIGHUP). Précise le nom du service
+// s'il ne s'appelle pas "chasse" :  PM2_APP=chasse-prod node ops/parrainage.mjs …
 
 import { createClient } from "@libsql/client";
+import { execFile } from "node:child_process";
 
 const db = createClient({ url: process.env.SCORES_DB || "file:./scores.db" });
 const deacc = (s) => String(s).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
@@ -124,8 +126,24 @@ async function importer(avecInvites) {
   if (!avecInvites) console.log("  (invités non importés — relance avec --invites si tu les veux)");
 }
 
+// Prévient le serveur qu'il doit relire la base (aucune coupure de service).
+function rechargerServeur() {
+  const app = process.env.PM2_APP || "chasse";
+  return new Promise((resolve) => {
+    execFile("pm2", ["sendSignal", "SIGHUP", app], (err, stdout, stderr) => {
+      if (err) {
+        console.log(`  ! Serveur non prévenu (${err.code === "ENOENT" ? "pm2 introuvable" : "app « " + app + " » ?"}).`);
+        console.log(`    Recharge-le à la main :  pm2 sendSignal SIGHUP <nom-de-l-app>`);
+      } else {
+        console.log(`  ↻ Serveur « ${app} » rechargé, sans coupure.`);
+      }
+      resolve();
+    });
+  });
+}
+
 const [cmd, a, b] = process.argv.slice(2);
-if (cmd === "import") { await importer(process.argv.includes("--invites")); process.exit(0); }
+if (cmd === "import") { await importer(process.argv.includes("--invites")); await rechargerServeur(); process.exit(0); }
 const gens = await all();
 
 if (!cmd || cmd === "list") {
@@ -155,11 +173,13 @@ if (!cmd || cmd === "list") {
   }
   await db.execute({ sql: "UPDATE referrals SET parent = ? WHERE id = ?", args: [parrain.id, filleul.id] });
   console.log(`✓ ${filleul.name} est maintenant rattaché à ${parrain.name}`);
+  await rechargerServeur();
 } else if (cmd === "unset") {
   if (!a) { console.error("Usage : node ops/parrainage.mjs unset \"Filleul\""); process.exit(1); }
   const filleul = trouver(gens, a);
   await db.execute({ sql: "UPDATE referrals SET parent = '' WHERE id = ?", args: [filleul.id] });
   console.log(`✓ ${filleul.name} n'a plus de parrain (souche)`);
+  await rechargerServeur();
 } else if (cmd === "del" || cmd === "supprimer") {
   if (!a) { console.error("Usage : node ops/parrainage.mjs del \"Pseudo\" [--detacher]"); process.exit(1); }
   const cible = trouver(gens, a);
@@ -176,6 +196,7 @@ if (!cmd || cmd === "list") {
   await db.execute({ sql: "DELETE FROM referrals WHERE id = ?", args: [cible.id] });
   console.log(`✓ Fiche de ${cible.name} supprimée (code ${cible.code})`);
   console.log("  Note : elle sera recréée automatiquement, sans parrain, à sa prochaine connexion.");
+  await rechargerServeur();
 } else {
   console.error(`Commande inconnue : ${cmd}\nUtilise : import | list | orphelins | arbre | set | unset | del`);
   process.exit(1);

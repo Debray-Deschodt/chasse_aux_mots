@@ -5,23 +5,40 @@ alimente **La Basse-cour** (le bouton 🦆 dans le jeu).
 
 ---
 
-## ⚠️ La règle à ne pas oublier
+## Pas besoin de couper le serveur
 
-**Arrête le serveur avant toute modification, redémarre-le après.**
-
-Le serveur garde les liens de parrainage en mémoire vive et les réécrit en base à chaque
-connexion de joueur. Si tu modifies pendant qu'il tourne, tes changements seront écrasés
-sans avertissement.
+Après chaque modification, le script envoie un signal au serveur pour qu'il relise la base.
+**Aucune coupure de service**, les joueurs en cours de partie ne voient rien.
 
 ```bash
-sudo systemctl stop chasse-prod      # adapte au nom de ton service
-cd /var/www/chasse/serveur           # là où se trouve scores.db
-# … tes commandes …
-sudo systemctl start chasse-prod
+cd /var/www/chasse/serveur      # là où se trouve scores.db
+node ops/parrainage.mjs set "Léna" "Moulinex"
+# ✓ Léna est maintenant rattaché à MoulinexTurbo100
+# ↻ Serveur « chasse » rechargé, sans coupure.
 ```
 
-Les commandes de lecture (`list`, `orphelins`, `arbre`) sont sans risque et peuvent être
-lancées serveur allumé.
+Si ton application pm2 ne s'appelle pas `chasse` :
+
+```bash
+PM2_APP=chasse-prod node ops/parrainage.mjs set "Léna" "Moulinex"
+```
+
+Tu peux aussi le poser une fois pour toutes dans ton shell :
+
+```bash
+echo 'export PM2_APP=chasse-prod' >> ~/.bashrc
+```
+
+Si pm2 est introuvable ou le nom incorrect, le script te le dit et t'indique la commande à
+lancer toi-même :
+
+```bash
+pm2 sendSignal SIGHUP chasse-prod
+```
+
+⚠️ **Ne saute pas cette étape.** Le serveur garde les liens en mémoire ; tant qu'il n'a pas
+rechargé, il continue de travailler avec les anciens et peut réécrire tes modifications
+lorsqu'un joueur se connecte.
 
 ---
 
@@ -117,4 +134,9 @@ Sauvegarde avant de te lancer :
 cp scores.db scores.db.bak
 ```
 
-Pour revenir en arrière : serveur arrêté, `cp scores.db.bak scores.db`, puis redémarrage.
+Pour revenir en arrière :
+
+```bash
+cp scores.db.bak scores.db
+pm2 sendSignal SIGHUP chasse       # le serveur relit la sauvegarde
+```
