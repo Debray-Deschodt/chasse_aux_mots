@@ -247,6 +247,8 @@ body:not(.online) #recordsBtn{display:none}
 /* Bouton avec icône dessinée : contrairement à un caractère (←), sa hauteur est prévisible,
    donc elle se centre exactement sur le texte. Ciblé pour ne pas élargir les autres boutons. */
 .btn.withico{display:inline-flex; align-items:center; justify-content:center; gap:7px; text-indent:0}
+/* Boutons Fermer : pleine largeur partout (les cartes en flex l'obtenaient déjà) */
+#recordsClose, #settingsClose, #defClose{width:100%}
 .bico{width:1em; height:1em; flex:0 0 auto; display:block}
 .btn:active{transform:translateY(1px)}
 .btn.ghost{background:#fff; color:var(--ink); border:1.5px solid var(--line)}
@@ -318,6 +320,7 @@ body:not(.online) #recordsBtn{display:none}
 .lbrow.me span{color:var(--magenta)}
 .lbrow.sel{background:var(--magenta); border-color:var(--magenta)}
 .lbrow.sel span,.lbrow.sel b{color:#fff}
+.lbintro{font-size:12.5px; color:var(--muted); text-align:center; margin:2px 0 10px; text-transform:none; letter-spacing:0}
 .lbhint{font-size:11px; color:var(--muted); text-align:center; margin:-6px 0 10px; text-transform:none; letter-spacing:0}
 .badges{letter-spacing:0; font-size:14px}
 .lbempty{color:var(--muted); font-size:13px; padding:8px; text-align:center}
@@ -1090,6 +1093,7 @@ const DICT_B64 = "H4sIAAAAAAACA2RdaZPjKBL9Pv9SXWbU7FpWDQLHVP/6DZH5DrwR3cXLkyMTCa
       <button class="cardmin" id="breakMin" aria-label="Réduire" title="Réduire">▾</button>
       <div class="kicker">Manche #${st.round} · terminée</div>
       <h2>Classement</h2>
+      <div class="lbintro">Tout le monde vient de jouer la même grille, en même temps.</div>
       <div class="lb" id="lb">${lbRows()}</div>
       <div class="lbhint">Touche un joueur pour voir ses mots</div>
       <button class="btn ghost" id="breakRecordsBtn" style="margin:0 0 12px">🏆 Palmarès</button>
