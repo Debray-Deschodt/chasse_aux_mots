@@ -83,7 +83,10 @@ body:not(.online) #accountBtn{display:none}
 #settingsModal{z-index:60}
 #animalsModal{z-index:60}
 #treeModal{z-index:60}
-#treeCard{height:min(92vh, 100dvh - 44px); max-height:min(92vh, 100dvh - 44px); display:flex; flex-direction:column; overflow:hidden}
+/* La Basse-cour prend une taille proportionnelle à l'écran (largeur ET hauteur) ;
+   à l'intérieur, le graphe occupe toute la place restante. */
+#treeCard{width:min(96vw, 860px); max-width:none; height:min(92vh, 100dvh - 44px); max-height:min(92vh, 100dvh - 44px);
+  display:flex; flex-direction:column; overflow:hidden}
 #treeCard .kicker, #treeCard h2, #treeCard .anhint, #treeCard .refbar, #treeCard #treeClose{flex:0 0 auto}
 .treewrap{flex:1 1 auto; min-height:0; overflow-y:auto; overflow-x:hidden; -webkit-overflow-scrolling:touch; overscroll-behavior:contain; margin:6px 0 12px}
 
