@@ -136,12 +136,15 @@ body:not(.online) #accountBtn{display:none}
 .disc{position:relative; border:1.5px solid var(--line); border-radius:14px; background:var(--board); overflow:hidden; touch-action:none}
 .disc svg{display:block; width:100%; height:100%; cursor:grab}
 .disc svg:active{cursor:grabbing}
-.disc .ring{fill:none; stroke:var(--line); stroke-width:1; stroke-dasharray:2 5}
-.disc .lnk{stroke:var(--line); stroke-width:1.4}
-.disc .nd{fill:var(--ink); stroke:var(--panel); stroke-width:1.5; cursor:grab}
-.disc .nd.me{fill:var(--magenta)}
-.disc .nd.sel{stroke:var(--magenta)}
-.disc .nd.lin{stroke:var(--green)}
+.disc .lnk{fill:none; stroke:var(--line); stroke-width:1.4; opacity:.8}
+.disc .hull{opacity:.13; pointer-events:none}
+.disc .beast{cursor:grab}
+.disc .beast:active{cursor:grabbing}
+.disc .pill{fill:var(--panel); stroke:var(--line); stroke-width:1.5}
+.disc .pill.me{fill:var(--magenta); stroke:transparent}
+.disc .pill.sel{stroke:var(--magenta)}
+.disc .pill.lin{stroke:var(--green)}
+.disc .emo{dominant-baseline:central; pointer-events:none; -webkit-user-select:none; user-select:none}
 .disc .lbl{font-family:var(--ui); font-weight:700; fill:var(--muted); pointer-events:none; paint-order:stroke;
   stroke:var(--board); stroke-width:3px; stroke-linejoin:round}
 .disc .lbl.hid{display:none}
@@ -162,6 +165,7 @@ body.noscroll{overflow:hidden}
 .discsel .go{font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:.07em; color:#fff; background:var(--magenta);
   border:none; border-radius:999px; padding:7px 11px; cursor:pointer}
 .discsel .hint{font-size:11px; color:var(--muted)}
+.discsel .selemo{font-size:19px; flex:0 0 auto}
 .tsearch{width:100%; padding:10px 12px; border:1.5px solid var(--line); border-radius:11px; background:var(--panel);
   color:var(--ink); font-family:var(--ui); font-weight:600; font-size:13px; margin-bottom:9px}
 .tsearch::placeholder{color:var(--muted); font-weight:500}
@@ -360,7 +364,7 @@ body:not(.online) #recordsBtn{display:none}
     <span class="user" id="user"></span>
     <button class="icobtn" id="recordsBtn" title="Palmarès">🏆</button>
     <button class="icobtn" id="animalsBtn" title="Mes animaux">🐾</button>
-    <button class="icobtn" id="treeBtn" title="L'arbre des joueurs">🌳</button>
+    <button class="icobtn" id="treeBtn" title="La basse-cour">🐔</button>
     <button class="icobtn" id="settingsBtn" title="Paramètres">⚙️</button>
     <button class="icobtn" id="accountBtn">Se connecter</button>
     <button class="icobtn" id="lobbyBtn" title="Revenir au lobby">↩ Lobby</button>
@@ -1422,7 +1426,90 @@ const DICT_B64 = "H4sIAAAAAAACA2RdaZPjKBL9Pv9SXWbU7FpWDQLHVP/6DZH5DrwR3cXLkyMTCa
   }
   el("animalsBtn").onclick = openAnimals;
 
-  // ---------- L'Arbre (parrainage) ----------
+  // ---------- Animal d'un pseudo (affichage) ----------
+  const FAUNE = {
+    // ferme & compagnie
+    chat:"🐱", chatte:"🐱", chaton:"🐱", minou:"🐱", chien:"🐶", chienne:"🐶", chiot:"🐶", toutou:"🐶",
+    vache:"🐮", veau:"🐮", taureau:"🐂", boeuf:"🐂", buffle:"🐃", cheval:"🐴", jument:"🐴", poulain:"🐴", poney:"🐴",
+    ane:"🫏", anesse:"🫏", mule:"🫏", cochon:"🐷", truie:"🐷", porc:"🐷", porcelet:"🐷", goret:"🐷",
+    mouton:"🐑", brebis:"🐑", agneau:"🐑", belier:"🐑", chevre:"🐐", bouc:"🐐", chevreau:"🐐",
+    lapin:"🐰", lapine:"🐰", lapereau:"🐰", lievre:"🐇", levraut:"🐇", poule:"🐔", coq:"🐓", poussin:"🐤", poulet:"🐔", dinde:"🦃", dindon:"🦃",
+    oie:"🦢", jars:"🦢", canard:"🦆", cane:"🦆", caneton:"🦆", lama:"🦙", alpaga:"🦙", chameau:"🐫", dromadaire:"🐪",
+    // sauvages
+    lion:"🦁", lionne:"🦁", lionceau:"🦁", tigre:"🐯", tigresse:"🐯", loup:"🐺", louve:"🐺", louveteau:"🐺",
+    renard:"🦊", renarde:"🦊", ours:"🐻", ourse:"🐻", ourson:"🐻", panda:"🐼", koala:"🐨",
+    singe:"🦧", guenon:"🦧", gorille:"🦍", chimpanze:"🐵", ouistiti:"🐵", babouin:"🐵",
+    elephant:"🐘", girafe:"🦒", zebre:"🦓", rhinoceros:"🦏", hippopotame:"🦛",
+    cerf:"🦌", biche:"🦌", faon:"🦌", chevreuil:"🦌", caribou:"🦌", renne:"🦌", elan:"🦌", orignal:"🦌",
+    antilope:"🦌", gazelle:"🦌", impala:"🦌", bison:"🦬", buffle2:"🦬", sanglier:"🐗", marcassin:"🐗", laie:"🐗",
+    kangourou:"🦘", wallaby:"🦘", paresseux:"🦥", loutre:"🦦", blaireau:"🦡", mouffette:"🦨", herisson:"🦔",
+    taupe:"🐭", ecureuil:"🐿️", castor:"🦫", marmotte:"🐹", hamster:"🐹", gerbille:"🐹", cobaye:"🐹",
+    rat:"🐀", ratte:"🐀", raton:"🦝", souris:"🐁", mulot:"🐭", loir:"🐭", campagnol:"🐭",
+    belette:"🐭", hermine:"🐭", furet:"🐭", vison:"🐭", martre:"🐭", fouine:"🐭",
+    chauvesouris:"🦇", lynx:"🐈", panthere:"🐆", leopard:"🐆", jaguar:"🐆", guepard:"🐆", puma:"🐆", ocelot:"🐆",
+    hyene:"🐺", chacal:"🐺", coyote:"🐺", dingo:"🐺", tatou:"🦡", pangolin:"🦡", tapir:"🐗", suricate:"🦫",
+    // mer
+    phoque:"🦭", otarie:"🦭", morse:"🦭", dauphin:"🐬", baleine:"🐋", cachalot:"🐋", orque:"🐋", narval:"🐋",
+    requin:"🦈", poulpe:"🐙", pieuvre:"🐙", calmar:"🦑", seiche:"🦑", encornet:"🦑",
+    crabe:"🦀", tourteau:"🦀", homard:"🦞", langouste:"🦞", ecrevisse:"🦞", crevette:"🦐", gambas:"🦐",
+    huitre:"🦪", moule:"🦪", palourde:"🦪", coquillage:"🦪", meduse:"🪼", oursin:"🦔", etoiledemer:"⭐",
+    poisson:"🐟", truite:"🐟", saumon:"🐟", carpe:"🐟", brochet:"🐟", sandre:"🐟", sardine:"🐟", anchois:"🐟",
+    hareng:"🐟", anguille:"🐟", morue:"🐟", cabillaud:"🐟", thon:"🐟", maquereau:"🐟", loche:"🐟", perche:"🐟",
+    gardon:"🐟", goujon:"🐟", sole:"🐟", turbot:"🐟", raie:"🐟", murene:"🐟", esturgeon:"🐟", barbue:"🐟",
+    hippocampe:"🐠", poissonrouge:"🐠", guppy:"🐠", piranha:"🐠",
+    // oiseaux
+    aigle:"🦅", faucon:"🦅", buse:"🦅", epervier:"🦅", milan:"🦅", vautour:"🦅", condor:"🦅", busard:"🦅",
+    hibou:"🦉", chouette:"🦉", duc:"🦉", effraie:"🦉",
+    corbeau:"🐦", corneille:"🐦", freux:"🐦", choucas:"🐦", pie:"🐦", geai:"🐦", moineau:"🐦", piaf:"🐦",
+    mesange:"🐦", rougegorge:"🐦", hirondelle:"🐦", martinet:"🐦", pigeon:"🐦", ramier:"🐦",
+    tourterelle:"🕊️", colombe:"🕊️", mouette:"🕊️", goeland:"🕊️", sterne:"🕊️",
+    cormoran:"🐦", pelican:"🐦", fou:"🐦", flamant:"🦩", paon:"🦚", perroquet:"🦜", perruche:"🦜", toucan:"🦜",
+    ara:"🦜", cacatoes:"🦜", mainate:"🦜", autruche:"🦤", emeu:"🦤", nandou:"🦤", casoar:"🦤", dodo:"🦤",
+    cygne:"🦢", heron:"🐦", aigrette:"🐦", cigogne:"🐦", grue:"🐦", ibis:"🐦", spatule:"🐦",
+    manchot:"🐧", pingouin:"🐧", macareux:"🐧",
+    perdrix:"🐦", caille:"🐦", faisan:"🐦", becasse:"🐦", alouette:"🐦", merle:"🐦", grive:"🐦",
+    rossignol:"🐦", pinson:"🐦", chardonneret:"🐦", linotte:"🐦", bouvreuil:"🐦", verdier:"🐦",
+    pivert:"🐦", pic:"🐦", coucou:"🐦", huppe:"🐦", bergeronnette:"🐦", troglodyte:"🐦", roitelet:"🐦",
+    martinpecheur:"🐦", engoulevent:"🐦", colibri:"🐦", canari:"🐦", serin:"🐦",
+    // reptiles & amphibiens
+    serpent:"🐍", vipere:"🐍", couleuvre:"🐍", cobra:"🐍", python:"🐍", boa:"🐍", anaconda:"🐍", mamba:"🐍",
+    lezard:"🦎", gecko:"🦎", iguane:"🦎", cameleon:"🦎", varan:"🦎", orvet:"🦎",
+    crocodile:"🐊", alligator:"🐊", caiman:"🐊", gavial:"🐊",
+    tortue:"🐢", cistude:"🐢", grenouille:"🐸", crapaud:"🐸", rainette:"🐸", tetard:"🐸",
+    salamandre:"🦎", triton:"🦎", axolotl:"🦎",
+    // petites bêtes
+    papillon:"🦋", chenille:"🐛", cocon:"🐛", abeille:"🐝", guepe:"🐝", frelon:"🐝", bourdon:"🐝",
+    fourmi:"🐜", termite:"🐜", coccinelle:"🐞", scarabee:"🪲", hanneton:"🪲", lucane:"🪲", bousier:"🪲",
+    grillon:"🦗", criquet:"🦗", sauterelle:"🦗", mante:"🦗", cigale:"🦗",
+    mouche:"🪰", moucheron:"🪰", moustique:"🦟", taon:"🦟", puce:"🦟", pou:"🦟", tique:"🕷️",
+    araignee:"🕷️", tarentule:"🕷️", scorpion:"🦂", mille:"🐛", mite:"🦋",
+    escargot:"🐌", limace:"🐌", ver:"🪱", lombric:"🪱", asticot:"🪱", sangsue:"🪱", libellule:"🦟",
+    cafard:"🪳", blatte:"🪳", punaise:"🪲", perceoreille:"🪲",
+    // imaginaires (les pseudos sont libres)
+    dragon:"🐉", licorne:"🦄", dinosaure:"🦕", diplodocus:"🦕", trex:"🦖", raptor:"🦖", mammouth:"🦣",
+    phenix:"🦅", griffon:"🦅", kraken:"🐙", yeti:"🦧", monstre:"👾", bestiole:"🐾", bebete:"🐾",
+  };
+  const deacc = (s) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  const SINGULIER = (w) => (w.length > 4 && /[sx]$/.test(w) ? w.slice(0, -1) : w);
+  // animaux assez longs pour être cherchés n'importe où sans faux positif
+  const LONGS = Object.keys(FAUNE).filter((k) => k.length >= 6).sort((a, b) => b.length - a.length);
+
+  function animalOf(pseudo) {
+    const raw = String(pseudo || "");
+    // 1) on découpe le pseudo (majuscules, chiffres, séparateurs) et on cherche une correspondance exacte
+    const parts = raw.split(/(?=[A-ZÀ-ÖØ-Þ])|[^A-Za-zÀ-ÿ]+/).filter(Boolean).map((p) => deacc(p));
+    for (let i = parts.length - 1; i >= 0; i--) {          // le dernier segment d'abord : « CurieuseChenille » -> chenille
+      const w = parts[i];
+      const e = FAUNE[w] || FAUNE[SINGULIER(w)];           // « Chenilles » comme « Chenille », « perdrix » tel quel
+      if (e) return e;
+    }
+    // 2) sinon, recherche dans la chaîne entière, mais seulement pour les noms longs
+    const flat = SINGULIER(deacc(raw).replace(/[^a-z]/g, ""));
+    for (const k of LONGS) if (flat.includes(k)) return FAUNE[k];
+    return "🐾";                                            // pas d'animal : empreinte de pattes
+  }
+
+  // ---------- La Basse-cour (parrainage) ----------
   const escT = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;" }[c]));
   function buildHouses(nodes){
     const byCode = new Map(nodes.map((n) => [n.code, n]));
@@ -1514,9 +1601,9 @@ const DICT_B64 = "H4sIAAAAAAACA2RdaZPjKBL9Pv9SXWbU7FpWDQLHVP/6DZH5DrwR3cXLkyMTCa
     const branchCount = treeNodes.filter((n) => isRoot(n) && (kids.get(n.code) || []).length).length;
     let maxDepth = 0;
     for (const n of treeNodes) maxDepth = Math.max(maxDepth, pathTo(n.code).length - 1);
-    return `<div class="tstats">${treeNodes.length} joueurs · ${branchCount} branche${branchCount>1?"s":""} · ${maxDepth + 1} génération${maxDepth?"s":""}</div>
-      <div class="disc" id="disc" style="height:min(56vh,420px)"><div class="dload">Chargement du plan…</div></div>
-      <div class="discsel" id="discSel"><span class="hint">Double-touche un point pour ouvrir sa branche.</span></div>`;
+    return `<div class="tstats">${treeNodes.length} joueurs · ${branchCount} clan${branchCount>1?"s":""} · ${maxDepth + 1} génération${maxDepth?"s":""}</div>
+      <div class="disc" id="disc" style="height:min(56vh,420px)"><div class="dload">Chargement de la basse-cour…</div></div>
+      <div class="discsel" id="discSel"><span class="hint">Double-touche une bête pour ouvrir sa nichée.</span></div>`;
   }
   async function mountGraph(){
     if (graphStop) { graphStop(); graphStop = null; }   // on démonte le graphe précédent (écouteurs compris)
@@ -1524,14 +1611,29 @@ const DICT_B64 = "H4sIAAAAAAACA2RdaZPjKBL9Pv9SXWbU7FpWDQLHVP/6DZH5DrwR3cXLkyMTCa
     let d3;
     try { d3 = await loadD3(); }
     catch {
-      host.innerHTML = `<div class="dload">Plan indisponible (hors connexion).<br>Utilise l'onglet Explorer.</div>`;
+      host.innerHTML = `<div class="dload">Basse-cour indisponible (hors connexion).<br>Utilise l'onglet Explorer.</div>`;
       return;
     }
     if (!el("disc")) return;                                  // fenêtre refermée entre-temps
     const { byCode, kids, roots } = treeIdx;
-    const multiRoot = roots.length > 1;                       // plusieurs points de départ (arrivées sans parrain)
-    const depthOf = (c) => pathTo(c).length - 1 + (multiRoot ? 1 : 0);   // centre laissé libre si plusieurs racines
-    // Angle cible par lignée : chaque branche garde son secteur (évite l'emmêlement)
+    const depthOf = (c) => pathTo(c).length - 1;
+    // Clan = la souche dont on descend (sert aux couleurs et aux halos)
+    const clanOf = (c) => { let x = c; for (let i = 0; i < 300; i++){ const e = byCode.get(x); if (!e || !e.parent || !byCode.has(e.parent)) return x; x = e.parent; } return x; };
+    const clans = [...new Set(treeNodes.map((n) => clanOf(n.code)))];
+    const hueOf = (c) => (clans.indexOf(c) * 67) % 360;
+    const nodes = treeNodes.map((n) => ({
+      id: n.code, name: n.name, emoji: animalOf(n.name),
+      depth: depthOf(n.code), size: subtreeSize(n.code),
+      clan: clanOf(n.code), me: NET.code === n.code,
+    }));
+    const links = [];
+    for (const [p, ch] of kids) for (const c of ch) if (byCode.has(p) && byCode.has(c)) links.push({ source: p, target: c });
+    const W = host.clientWidth || 320, H = host.clientHeight || 340;
+    const SCALE = Math.min(W, H);                             // référence pour mémoriser les positions
+    const rOf = (d) => 13 + Math.min(9, Math.sqrt(d.size) * 2.2);
+
+    // Départ : disposition radiale discrète (elle n'est jamais affichée, mais évite
+    // un démarrage emmêlé) ; les forces organiques prennent ensuite le relais.
     const leafMemo = new Map(), lguard = new Set();
     const leaves = (c) => {
       if (leafMemo.has(c)) return leafMemo.get(c);
@@ -1540,154 +1642,132 @@ const DICT_B64 = "H4sIAAAAAAACA2RdaZPjKBL9Pv9SXWbU7FpWDQLHVP/6DZH5DrwR3cXLkyMTCa
       const v = ch.length ? ch.reduce((s, k) => s + leaves(k), 0) : 1;
       leafMemo.set(c, v); return v;
     };
-    const ang = new Map(), branchOf = new Map(), aseen = new Set();
-    const assign = (code, a0, a1, branch) => {
+    const ang = new Map(), aseen = new Set();
+    const assign = (code, a0, a1) => {
       if (aseen.has(code)) return; aseen.add(code);
-      ang.set(code, (a0 + a1) / 2); branchOf.set(code, branch);
+      ang.set(code, (a0 + a1) / 2);
       const ch = [...(kids.get(code) || [])].sort((x, y) => leaves(y) - leaves(x));
       const span = a1 - a0, tot = ch.reduce((s, k) => s + leaves(k), 0) || 1;
       let cur = a0;
-      for (const k of ch){ const w = span * leaves(k) / tot; assign(k, cur, cur + w, branch || k); cur += w; }
+      for (const k of ch){ const w = span * leaves(k) / tot; assign(k, cur, cur + w); cur += w; }
     };
-    if (roots.length === 1) assign(roots[0], -Math.PI/2, Math.PI*1.5, "");
+    if (roots.length === 1) assign(roots[0], -Math.PI/2, Math.PI*1.5);
     else {
-      const wRoot = (r) => leaves(r) + 4;                     // +4 : garantit une part visible aux petites racines
+      const wRoot = (r) => leaves(r) + 4;
       const tot = roots.reduce((s, r) => s + wRoot(r), 0) || 1;
       let cur = -Math.PI/2;
-      for (const r of [...roots].sort((x,y) => leaves(y) - leaves(x))){ const w = 2*Math.PI*wRoot(r)/tot; assign(r, cur, cur + w, r); cur += w; }
+      for (const r of [...roots].sort((x,y) => leaves(y) - leaves(x))){ const w = 2*Math.PI*wRoot(r)/tot; assign(r, cur, cur + w); cur += w; }
     }
-    const lineageOf = (code) => {                              // ancêtres + soi + toute la descendance
-      const set = new Set();
-      for (const e of pathTo(code)) set.add(e.code);           // remonte jusqu'à la racine
-      const st = [code], seenL = new Set();
-      while (st.length){                                        // puis descend
-        const c = st.pop();
-        if (seenL.has(c)) continue;
-        seenL.add(c); set.add(c);
-        for (const kk of (kids.get(c) || [])) st.push(kk);
-      }
-      return set;
-    };
-    const branches = [...new Set([...branchOf.values()].filter(Boolean))];
-    const hueOf = (b) => branches.length ? (branches.indexOf(b) * 360 / Math.max(1, branches.length)) : 0;
-    const nodes = treeNodes.map((n) => ({ id: n.code, name: n.name, depth: depthOf(n.code),
-      size: subtreeSize(n.code), me: NET.code === n.code,
-      a: ang.get(n.code) || 0, branch: branchOf.get(n.code) || "" }));
-    const links = [];
-    for (const [p, ch] of kids) for (const c of ch) if (byCode.has(p) && byCode.has(c)) links.push({ source: p, target: c });
-    const W = host.clientWidth || 320, H = host.clientHeight || 340;
-    const rOf = (d) => 4 + Math.min(8, Math.sqrt(d.size) * 1.7);
     const maxDepth = nodes.reduce((m, n) => Math.max(m, n.depth), 0);
-    // Les anneaux remplissent le cadre : inutile de viser un espacement rigide, la collision
-    // écarte les voisins localement. On évite ainsi un disque géant réduit à un amas au cadrage.
-    const RING = Math.max(22, (Math.min(W, H) / 2 - 26) / Math.max(1, maxDepth));
-
+    const STEP = Math.max(34, (SCALE / 2 - 34) / Math.max(1, maxDepth));
+    for (const n of nodes){
+      const a = ang.get(n.id) || 0;
+      n.x = W/2 + Math.cos(a) * n.depth * STEP;
+      n.y = H/2 + Math.sin(a) * n.depth * STEP;
+    }
     for (const n of nodes){                                    // on retrouve sa disposition après un basculement
       const keep = graphPos.get(n.id);
-      if (keep){ n.x = keep.x; n.y = keep.y; if (keep.pinned){ n.pinned = true; n.ax = keep.ax; n.ay = keep.ay; } }
+      if (!keep) continue;
+      n.x = W/2 + keep.nx * SCALE; n.y = H/2 + keep.ny * SCALE;
+      if (keep.pinned && keep.anx != null){
+        n.pinned = true;
+        n.ax = W/2 + keep.anx * SCALE; n.ay = H/2 + keep.any * SCALE;
+      }
     }
     const nodeById = new Map(nodes.map((n) => [n.id, n]));
-    host.innerHTML = `<svg><g class="scene"><g class="rings"></g><g class="links"></g><g class="dots"></g><g class="labels"></g></g></svg>
+
+    host.innerHTML = `<svg><g class="scene"><g class="hulls"></g><g class="links"></g><g class="dots"></g></g></svg>
       <button class="discfs" id="discExit">✕ Quitter</button>
       <div class="zoomer"><button data-z="out">−</button><button data-z="in">+</button><button data-z="full" title="Plein écran">⛶</button></div>`;
     const svg = d3.select(host).select("svg").attr("viewBox", `0 0 ${W} ${H}`);
     const scene = svg.select(".scene");
-    scene.select(".rings").selectAll("circle")
-      .data(d3.range(1, maxDepth + 1)).join("circle")
-      .attr("class", "ring").attr("cx", W/2).attr("cy", H/2).attr("r", (d) => d * RING);
-    if (multiRoot){                                            // le centre n'appartient à personne : on l'indique
-      scene.select(".rings").append("text").attr("class", "hub")
-        .attr("x", W/2).attr("y", H/2 + 4).attr("text-anchor", "middle").text("chasse aux mots");
-    }
-    const link = scene.select(".links").selectAll("line").data(links).join("line").attr("class", "lnk")
-      .attr("x1", (d) => nodeById.get(d.source).x).attr("y1", (d) => nodeById.get(d.source).y)
-      .attr("x2", (d) => nodeById.get(d.target).x).attr("y2", (d) => nodeById.get(d.target).y)
-      .attr("stroke", (d) => { const b = branchOf.get(typeof d.target === "object" ? d.target.id : d.target);
-        return b ? `hsl(${hueOf(b).toFixed(0)} 45% 55%)` : "var(--line)"; });
-    const dot = scene.select(".dots").selectAll("circle").data(nodes).join("circle")
-      .attr("class", (d) => "nd" + (d.me ? " me" : "")).attr("r", rOf)
-      .attr("cx", (d) => d.x).attr("cy", (d) => d.y)
-      .attr("fill", (d) => d.me ? null : (d.branch ? `hsl(${hueOf(d.branch).toFixed(0)} 40% 38%)` : null));
-    const lbl = scene.select(".labels").selectAll("text").data(nodes).join("text")
-      .attr("class", "lbl").attr("text-anchor", "middle")
-      .attr("x", (d) => d.x).attr("y", (d) => d.y - rOf(d) - 5)
-      .text((d) => d.name.length > 15 ? d.name.slice(0, 14) + "…" : d.name);
+    const hulls = scene.select(".hulls");
+    const link = scene.select(".links").selectAll("path").data(links).join("path").attr("class", "lnk")
+      .attr("stroke", (d) => `hsl(${hueOf(nodeById.get(typeof d.target === "object" ? d.target.id : d.target).clan)} 45% 55%)`);
+    const node = scene.select(".dots").selectAll("g").data(nodes).join("g").attr("class", "beast");
+    node.append("circle").attr("class", (d) => "pill" + (d.me ? " me" : "")).attr("r", rOf);
+    node.append("text").attr("class", "emo").attr("text-anchor", "middle").attr("dy", ".02em")
+      .attr("font-size", (d) => rOf(d) * 1.05).text((d) => d.emoji);
+    const lbl = node.append("text").attr("class", "lbl").attr("text-anchor", "middle")
+      .text((d) => { const n = d.name.replace(/\d+$/, ""); return n.length > 15 ? n.slice(0, 14) + "…" : n; });
+    node.attr("transform", (d) => `translate(${d.x},${d.y})`);
 
-    for (const n of nodes){                                    // position idéale : anneau + secteur
-      n.tx = W/2 + Math.cos(n.a) * n.depth * RING;
-      n.ty = H/2 + Math.sin(n.a) * n.depth * RING;
-      n.x = n.tx; n.y = n.ty;                                  // on démarre déjà démêlé
-    }
     const sim = d3.forceSimulation(nodes)
-      // les liens tirent nettement : chaque joueur se rapproche de son parrain et de ses filleuls
-      .force("link", d3.forceLink(links).id((d) => d.id).distance(RING * 0.7).strength(.3))
-      .force("charge", d3.forceManyBody().strength(-Math.max(30, RING)))
-      // chaque branche reste dans son quartier ; un point déplacé est ancré là où on l'a lâché
-      .force("sector", d3.forceX((d) => d.pinned ? d.ax : d.tx).strength((d) => d.pinned ? .9 : .18))
-      .force("sectorY", d3.forceY((d) => d.pinned ? d.ay : d.ty).strength((d) => d.pinned ? .9 : .18))
-      .force("collide", d3.forceCollide((d) => rOf(d) + 3).strength(1).iterations(4))
-      .alpha(.7);
-    // d3 met en cache les cibles et les intensités : à réappliquer dès qu'un point est ancré
-    const targetX = (d) => d.pinned ? d.ax : d.tx, targetY = (d) => d.pinned ? d.ay : d.ty;
-    const strengthOf = (d) => d.pinned ? .9 : .18;
-    const refreshAnchors = () => {
-      sim.force("sector").x(targetX).strength(strengthOf);
-      sim.force("sectorY").y(targetY).strength(strengthOf);
+      // liens courts et fermes : chaque bête colle à sa nichée
+      .force("link", d3.forceLink(links).id((d) => d.id).distance((d) => 46 + rOf(d.source) * .4).strength(.55))
+      .force("charge", d3.forceManyBody().strength(-160))
+      .force("x", d3.forceX((d) => d.pinned ? d.ax : W/2).strength((d) => d.pinned ? .9 : .05))
+      .force("y", d3.forceY((d) => d.pinned ? d.ay : H/2).strength((d) => d.pinned ? .9 : .06))
+      .force("collide", d3.forceCollide((d) => rOf(d) + 5).strength(1).iterations(3))
+      .alpha(.8);
+    const anchorX = (d) => d.pinned ? d.ax : W/2, anchorY = (d) => d.pinned ? d.ay : H/2;
+    const anchorS = (d) => d.pinned ? .9 : .055;
+    const refreshAnchors = () => {                             // d3 met ses cibles en cache
+      sim.force("x").x(anchorX).strength(anchorS);
+      sim.force("y").y(anchorY).strength(anchorS);
     };
 
-    // zoom / déplacement — les libellés gardent une taille écran constante
-    let k = 1, ticks = 0;
-    const order = [...nodes].sort((a, b) => (b.me?1:0)-(a.me?1:0) || b.size - a.size);   // priorité d'affichage des noms
-    let lineage = new Set(), selId = "";
-    const paint = () => {
-      // les points ne descendent jamais sous ~4px à l'écran, même très dézoomé
-      dot.classed("lin", (d) => lineage.has(d.id))
-         .attr("r", (d) => Math.max(rOf(d), 4 / k))
-         .attr("stroke-width", (d) => ((lineage.has(d.id) || d.id === selId) ? 3 : 1.5) / k);
-      link.classed("lin", (d) => lineage.has(d.source.id) && lineage.has(d.target.id))
-          .attr("stroke", (d) => (lineage.has(d.source.id) && lineage.has(d.target.id))
-            ? "var(--green)"
-            : (branchOf.get(d.target.id) ? `hsl(${hueOf(branchOf.get(d.target.id)).toFixed(0)} 45% 55%)` : "var(--line)"))
-          .attr("stroke-width", (d) => ((lineage.has(d.source.id) && lineage.has(d.target.id)) ? 2.6 : 1.4) / k);
-      scene.select(".rings").selectAll("circle").attr("stroke-width", 1 / k);
+    let k = 1, ticks = 0, lineage = new Set(), selId = "";
+    const order = [...nodes].sort((a, b) => (b.me?1:0)-(a.me?1:0) || b.size - a.size);
+    const lineageOf = (code) => {                              // ancêtres + soi + toute la descendance
+      const set = new Set();
+      for (const e of pathTo(code)) set.add(e.code);
+      const st = [code], seenL = new Set();
+      while (st.length){ const c = st.pop(); if (seenL.has(c)) continue; seenL.add(c); set.add(c); for (const kk of (kids.get(c) || [])) st.push(kk); }
+      return set;
     };
-    const placeLabels = (fs) => lbl.attr("x", (d) => d.x)
-      .attr("y", (d) => d.y - Math.max(rOf(d), 4 / k) - fs * 0.45);
+    const paint = () => {
+      node.select("circle").classed("lin", (d) => lineage.has(d.id))
+        .attr("stroke-width", (d) => ((lineage.has(d.id) || d.id === selId) ? 3 : 1.5) / k);
+      link.attr("stroke", (d) => (lineage.has(d.source.id) && lineage.has(d.target.id))
+          ? "var(--green)" : `hsl(${hueOf(d.target.clan)} 45% 55%)`)
+        .attr("stroke-width", (d) => ((lineage.has(d.source.id) && lineage.has(d.target.id)) ? 2.6 : 1.4) / k);
+    };
     const relabel = () => {
-      const fs = 11 / k, pad = 2 / k;
-      lbl.attr("font-size", fs).attr("stroke-width", 3 / k);
-      placeLabels(fs);                                          // sinon les noms restent décalés après un zoom
+      const fs = 10 / k;
+      lbl.attr("font-size", fs).attr("stroke-width", 3 / k).attr("y", (d) => rOf(d) + fs * 1.15);
       paint();
-      // masque les libellés qui se chevauchent (les grosses lignées d'abord)
-      const shown = [];
-      const vis = new Set();
+      const shown = [], vis = new Set();
       for (const n of order){
-        const w = (Math.min(n.name.length, 15) * fs * 0.55) + pad, h = fs + pad;
-        const x = n.x, y = n.y - rOf(n) - fs * 0.4;
+        const w = (Math.min(n.name.length, 15) * fs * 0.55), h = fs;
+        const x = n.x, y = n.y + rOf(n) + fs;
         const box = [x - w/2, y - h, x + w/2, y];
-        if (!shown.some((b) => box[0] < b[2] && box[2] > b[0] && box[1] < b[3] && box[3] > b[1])){
-          shown.push(box); vis.add(n.id);
-        }
+        if (!shown.some((b) => box[0] < b[2] && box[2] > b[0] && box[1] < b[3] && box[3] > b[1])){ shown.push(box); vis.add(n.id); }
       }
       lbl.classed("hid", (d) => !vis.has(d.id));
     };
-    const tick = () => {
-      link.attr("x1", (d) => d.source.x).attr("y1", (d) => d.source.y)
-          .attr("x2", (d) => d.target.x).attr("y2", (d) => d.target.y);
-      dot.attr("cx", (d) => d.x).attr("cy", (d) => d.y);
-      placeLabels(11 / k);
-      if (++ticks % 6 === 0) relabel();                       // recalcul des chevauchements allégé
+    const drawHulls = () => {                                  // un halo doux par clan
+      const byClan = new Map();
+      for (const n of nodes){ if (!byClan.has(n.clan)) byClan.set(n.clan, []); byClan.get(n.clan).push(n); }
+      const data = [...byClan].filter(([, v]) => v.length > 2);
+      hulls.selectAll("path").data(data, (d) => d[0]).join("path")
+        .attr("class", "hull").attr("fill", (d) => `hsl(${hueOf(d[0])} 60% 50%)`)
+        .attr("d", (d) => {
+          const pts = [];
+          for (const n of d[1]){ const r = rOf(n) + 14; for (let a = 0; a < Math.PI*2; a += Math.PI/4) pts.push([n.x + Math.cos(a)*r, n.y + Math.sin(a)*r]); }
+          const h = d3.polygonHull(pts);
+          return h ? "M" + h.join("L") + "Z" : null;
+        });
     };
-    sim.on("tick", tick).on("end", relabel);
-    tick();                                                    // rendu immédiat : rien ne dépend du 1er tick
+    const tick = () => {
+      link.attr("d", (d) => {                                  // lien légèrement courbé : plus vivant qu'un trait droit
+        const dx = d.target.x - d.source.x, dy = d.target.y - d.source.y;
+        return `M${d.source.x},${d.source.y}Q${(d.source.x+d.target.x)/2 + dy*.12},${(d.source.y+d.target.y)/2 - dx*.12} ${d.target.x},${d.target.y}`;
+      });
+      node.attr("transform", (d) => `translate(${d.x},${d.y})`);
+      if ((++ticks & 3) === 0) drawHulls();                    // halos : recalcul allégé
+      if (ticks % 6 === 0) relabel();
+    };
+    sim.on("tick", tick).on("end", () => { drawHulls(); relabel(); });
+    tick(); drawHulls(); relabel();                            // rendu immédiat, sans attendre la simulation
 
-    const zoom = d3.zoom().scaleExtent([0.05, 10]).on("zoom", (ev) => {
+    const zoom = d3.zoom().scaleExtent([0.15, 6]).on("zoom", (ev) => {
       k = ev.transform.k; scene.attr("transform", ev.transform); relabel();
     });
-    svg.call(zoom).on("dblclick.zoom", null);   // le double-clic sert à ouvrir le profil
-    const fitT = () => {                         // cadre selon l'étendue réelle des points
+    svg.call(zoom).on("dblclick.zoom", null);   // le double-clic sert à ouvrir la nichée
+    const fitT = () => {
       let maxR = 1;
-      for (const n of nodes) maxR = Math.max(maxR, Math.hypot((n.x || 0) - W/2, (n.y || 0) - H/2) + rOf(n));
+      for (const n of nodes) maxR = Math.max(maxR, Math.hypot((n.x || 0) - W/2, (n.y || 0) - H/2) + rOf(n) + 14);
       const sc = Math.min(1, (Math.min(W, H) / 2 - 8) / maxR);
       return d3.zoomIdentity.translate(W/2 * (1 - sc), H/2 * (1 - sc)).scale(sc);
     };
@@ -1696,82 +1776,85 @@ const DICT_B64 = "H4sIAAAAAAACA2RdaZPjKBL9Pv9SXWbU7FpWDQLHVP/6DZH5DrwR3cXLkyMTCa
       ev.stopPropagation();
       if (b.dataset.z === "in") svg.transition().duration(200).call(zoom.scaleBy, 1.5);
       else if (b.dataset.z === "out") svg.transition().duration(200).call(zoom.scaleBy, 0.66);
-      else toggleFullscreen();                                 // ⛶ : plein écran
+      else toggleFullscreen();
     });
     const exitBtn = el("discExit");
     if (exitBtn) exitBtn.onclick = (ev) => { ev.stopPropagation(); toggleFullscreen(false); };
 
-    // points déplaçables : relâché = épinglé (double-tap pour libérer)
-    // Glissé maison, en événements pointeur AVEC CAPTURE : le point saisi continue de recevoir
-    // les mouvements même si un autre point passe sous le curseur (c'est ce qui faisait "décrocher").
+    // Glissé maison, en événements pointeur AVEC CAPTURE : la bête saisie continue de recevoir
+    // les mouvements même si une autre passe sous le curseur.
     const ptr = (ev) => d3.pointer(ev, scene.node());
     let drag = null;
-    dot.on("mousedown", (ev) => ev.stopPropagation())        // empêche le zoom de déplacer le fond
-       .on("touchstart", (ev) => ev.stopPropagation());
-    dot.on("pointerdown", function (ev, d) {
+    node.on("mousedown", (ev) => ev.stopPropagation()).on("touchstart", (ev) => ev.stopPropagation());
+    node.on("pointerdown", function (ev, d) {
       if (ev.button != null && ev.button !== 0) return;
       ev.stopPropagation();
       try { this.setPointerCapture(ev.pointerId); } catch {}
       const p = ptr(ev);
       if (!isFinite(p[0]) || !isFinite(p[1])) return;
       drag = { d, id: ev.pointerId, gx: d.x - p[0], gy: d.y - p[1], moved: false, el: this };
-      d.fx = d.x; d.fy = d.y;                                // figé dès l'appui : aucune dérive
+      d.fx = d.x; d.fy = d.y;
     });
-    const onMove = (ev) => {                                 // écoute globale : on ne rate aucun mouvement
+    const onMove = (ev) => {
       if (!drag || ev.pointerId !== drag.id) return;
       const p = ptr(ev);
-      if (!isFinite(p[0]) || !isFinite(p[1])) return;        // coordonnée invalide -> on ignore, jamais de NaN
+      if (!isFinite(p[0]) || !isFinite(p[1])) return;
       if (!drag.moved){ drag.moved = true; sim.alphaTarget(.25).restart(); }
       drag.d.fx = p[0] + drag.gx; drag.d.fy = p[1] + drag.gy;
     };
     window.addEventListener("pointermove", onMove);
     const endDrag = (ev) => {
       if (!drag || (ev && ev.pointerId !== drag.id)) return;
-      const d = drag.d, moved = drag.moved, el = drag.el;
-      try { el.releasePointerCapture(drag.id); } catch {}
+      const d = drag.d, moved = drag.moved, elx = drag.el;
+      try { elx.releasePointerCapture(drag.id); } catch {}
       drag = null;
-      if (!moved){ d.fx = d.fy = null; return; }             // simple clic : rien n'est épinglé
+      if (!moved){ d.fx = d.fy = null; return; }
       sim.alphaTarget(0);
-      d.ax = d.fx != null ? d.fx : d.x; d.ay = d.fy != null ? d.fy : d.y;   // ancré là où on l'a lâché
+      d.ax = d.fx != null ? d.fx : d.x; d.ay = d.fy != null ? d.fy : d.y;
       d.pinned = true;
-      d.fx = d.fy = null;                                    // plus figé : la collision continue de s'appliquer
-      refreshAnchors();                                      // sinon d3 ignore le nouvel ancrage (valeurs en cache)
+      d.fx = d.fy = null;                                      // ancré, mais toujours soumis à la collision
+      refreshAnchors();
       sim.alpha(.35).restart();
     };
-    dot.on("pointerup", endDrag).on("pointercancel", endDrag);
-    window.addEventListener("pointerup", endDrag);           // filet de sécurité si le relâchement sort du cadre
+    node.on("pointerup", endDrag).on("pointercancel", endDrag);
+    window.addEventListener("pointerup", endDrag);
     window.addEventListener("pointercancel", endDrag);
-    dot.on("dblclick", (ev, d) => {              // double-clic : ouvre son profil dans Explorer
-      ev.stopPropagation(); ev.preventDefault();
-      treeFocus = d.id; treeMode = "focus"; treeQuery = ""; renderTree();
-    });
 
-    // sélection
     const sel = el("discSel");
-    dot.on("click", (ev, d) => {
+    node.on("click", (ev, d) => {
       ev.stopPropagation();
-      dot.classed("sel", false); d3.select(ev.currentTarget).classed("sel", true);
-      selId = d.id; lineage = lineageOf(d.id); paint();                       // toute sa lignée passe en vert
-      sel.innerHTML = `<span class="mono mini${d.me ? " me":""}">${escT(initialOf(d.name))}</span>`
-        + `<span class="nm">${escT(d.name)}${d.size ? ` · ${d.size} dans sa branche` : ""}</span>`
+      node.select("circle").classed("sel", false);
+      d3.select(ev.currentTarget).select("circle").classed("sel", true);
+      selId = d.id; lineage = lineageOf(d.id); paint();
+      sel.innerHTML = `<span class="selemo">${d.emoji}</span>`
+        + `<span class="nm">${escT(d.name)}${d.size ? ` · ${d.size} dans sa lignée` : ""}</span>`
         + `<button class="go" data-go2="${d.id}">Explorer</button>`;
       const g = sel.querySelector("[data-go2]");
       if (g) g.onclick = () => { treeFocus = d.id; treeMode = "focus"; treeQuery = ""; renderTree(); };
     });
-    svg.on("click", () => {
-      dot.classed("sel", false); selId = ""; lineage = new Set(); paint();
-      sel.innerHTML = `<span class="hint">Double-touche un point pour ouvrir sa branche.</span>`;
+    node.on("dblclick", (ev, d) => {
+      ev.stopPropagation(); ev.preventDefault();
+      treeFocus = d.id; treeMode = "focus"; treeQuery = ""; renderTree();
     });
+    svg.on("click", () => {
+      node.select("circle").classed("sel", false); selId = ""; lineage = new Set(); paint();
+      sel.innerHTML = `<span class="hint">Double-touche une bête pour ouvrir sa nichée.</span>`;
+    });
+
     // Plein écran : on remonte le graphe pour qu'il occupe toute la surface,
-    // en conservant la disposition (positions et points ancrés).
+    // en conservant la disposition (positions et bêtes ancrées).
     toggleFullscreen = (want) => {
       const on = want === undefined ? !host.classList.contains("full") : want;
-      graphPos = new Map(nodes.map((n) => [n.id, { x: n.x, y: n.y, pinned: !!n.pinned, ax: n.ax, ay: n.ay }]));
+      graphPos = new Map(nodes.map((n) => [n.id, {
+        nx: (n.x - W/2) / SCALE, ny: (n.y - H/2) / SCALE,
+        pinned: !!n.pinned,
+        anx: n.ax != null ? (n.ax - W/2) / SCALE : null,
+        any: n.ay != null ? (n.ay - H/2) / SCALE : null,
+      }]));
       host.classList.toggle("full", on);
       document.body.classList.toggle("noscroll", on);
-      mountGraph();                                            // recalcule pour la nouvelle taille
+      mountGraph();
     };
-    // on arrête la simulation quand la fenêtre se ferme
     graphStop = () => {
       sim.stop();
       window.removeEventListener("pointermove", onMove);
@@ -1779,30 +1862,6 @@ const DICT_B64 = "H4sIAAAAAAACA2RdaZPjKBL9Pv9SXWbU7FpWDQLHVP/6DZH5DrwR3cXLkyMTCa
       window.removeEventListener("pointercancel", endDrag);
     };
   }
-
-
-  // Recherche d'un joueur (sans accents, insensible à la casse)
-  function renderSearch(){
-    const box = el("tsRes"); if (!box || !treeIdx) return;
-    const q = treeQuery.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
-    if (!q){ box.innerHTML = ""; return; }
-    const hits = treeNodes
-      .filter((n) => n.name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().includes(q))
-      .sort((a, b) => subtreeSize(b.code) - subtreeSize(a.code))
-      .slice(0, 8);
-    if (!hits.length){ box.innerHTML = `<div class="tsnone">Aucun joueur à ce nom.</div>`; return; }
-    box.innerHTML = hits.map((n) => {
-      const me = NET.code === n.code, sz = subtreeSize(n.code);
-      const parent = n.parent && treeIdx.byCode.get(n.parent);
-      return `<div class="hrow${me ? " me":""}" data-go="${n.code}">
-        <span class="mono${me ? " me":""}">${escT(initialOf(n.name))}</span>
-        <span class="nm">${escT(n.name)}${parent ? ` · invité par ${escT(parent.name)}` : ""}</span>
-        ${sz ? `<span class="tag">${sz}</span>` : ""}<span class="chev">▶</span>
-      </div>`;
-    }).join("");
-    box.querySelectorAll("[data-go]").forEach((n) => n.onclick = () => { treeFocus = n.dataset.go; treeQuery = ""; renderTree(); });
-  }
-
   // Navigation : un niveau à la fois
   function focusHTML(){
     const { byCode, kids, roots } = treeIdx;
@@ -1822,7 +1881,7 @@ const DICT_B64 = "H4sIAAAAAAACA2RdaZPjKBL9Pv9SXWbU7FpWDQLHVP/6DZH5DrwR3cXLkyMTCa
       head = `<div class="focus${me ? " mine":""}">
         <span class="mono founder${me ? " me":""}">${escT(initialOf(focusEntry.name))}</span>
         <span class="fname">${escT(focusEntry.name)}</span>
-        <span class="fsub">${tot} dans sa branche</span>
+        <span class="fsub">${tot} dans sa lignée</span>
       </div>`;
     }
     const nameOf = (c) => (byCode.get(c) || {}).name || "";
@@ -1838,12 +1897,12 @@ const DICT_B64 = "H4sIAAAAAAACA2RdaZPjKBL9Pv9SXWbU7FpWDQLHVP/6DZH5DrwR3cXLkyMTCa
       </div>`;
     }).join("");
     if (NET.code && treeIdx.byCode.has(NET.code) && treeFocus !== NET.code)
-      crumbs += `<button class="cb mine" data-go="${NET.code}">↩ Ma branche</button>`;
+      crumbs += `<button class="cb mine" data-go="${NET.code}">↩ Ma nichée</button>`;
     return `<input class="tsearch" id="treeSearch" type="search" placeholder="Rechercher un joueur" value="${escT(treeQuery)}">`
       + `<div class="tsres" id="tsRes"></div>`
       + `<div class="crumbs">${crumbs}</div>${head}`
       + (rows || (NET.code && treeFocus === NET.code
-          ? `<div class="anhint">Ta branche est vide. Invite quelqu'un pour la faire pousser.</div>`
+          ? `<div class="anhint">Ta nichée est vide. Invite quelqu'un à la rejoindre.</div>`
           : `<div class="anhint">${treeFocus ? "Ce joueur n'a encore invité personne." : "Aucun joueur pour l'instant."}</div>`));
   }
   async function openTree(){
@@ -1852,8 +1911,8 @@ const DICT_B64 = "H4sIAAAAAAACA2RdaZPjKBL9Pv9SXWbU7FpWDQLHVP/6DZH5DrwR3cXLkyMTCa
     const canShare = !!(navigator.share && link);
     el("treeCard").innerHTML = `
       <div class="kicker">Communauté</div>
-      <h2>L'Arbre</h2>
-      <div class="anhint">L'arbre pousse par le bouche-à-oreille.</div>
+      <h2>La Basse-cour</h2>
+      <div class="anhint">Elle s'agrandit par le bouche-à-oreille : chaque joueur invité fonde sa nichée.</div>
       <div class="treewrap" id="treeView"><div class="anhint">Chargement…</div></div>
       <div class="refbar" id="treeActions"></div>
       <button class="btn ghost" id="treeClose" style="margin-top:8px">Fermer</button>`;
