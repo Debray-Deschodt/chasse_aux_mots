@@ -136,7 +136,8 @@ body:not(.online) #accountBtn{display:none}
 .disc{position:relative; border:1.5px solid var(--line); border-radius:14px; background:var(--board); overflow:hidden; touch-action:none}
 .disc svg{display:block; width:100%; height:100%; cursor:grab}
 .disc svg:active{cursor:grabbing}
-.disc .lnk{fill:none; stroke:var(--line); stroke-width:1.4; opacity:.8}
+.disc .lnk{fill:none; stroke:var(--line); stroke-width:1.6; opacity:.95}
+[data-theme="dark"] .disc .lnk{opacity:.8}
 .disc .hull{opacity:.13; pointer-events:none}
 .disc .beast{cursor:grab}
 .disc .beast:active{cursor:grabbing}
@@ -1431,10 +1432,10 @@ const DICT_B64 = "H4sIAAAAAAACA2RdaZPjKBL9Pv9SXWbU7FpWDQLHVP/6DZH5DrwR3cXLkyMTCa
     // ferme & compagnie
     chat:"🐱", chatte:"🐱", chaton:"🐱", minou:"🐱", chien:"🐶", chienne:"🐶", chiot:"🐶", toutou:"🐶",
     vache:"🐮", veau:"🐮", taureau:"🐂", boeuf:"🐂", buffle:"🐃", cheval:"🐴", jument:"🐴", poulain:"🐴", poney:"🐴",
-    ane:"🫏", anesse:"🫏", mule:"🫏", cochon:"🐷", truie:"🐷", porc:"🐷", porcelet:"🐷", goret:"🐷",
+    ane:"🫏", anesse:"🫏", cochon:"🐷", truie:"🐷", porc:"🐷", porcelet:"🐷", goret:"🐷",
     mouton:"🐑", brebis:"🐑", agneau:"🐑", belier:"🐑", chevre:"🐐", bouc:"🐐", chevreau:"🐐",
     lapin:"🐰", lapine:"🐰", lapereau:"🐰", lievre:"🐇", levraut:"🐇", poule:"🐔", coq:"🐓", poussin:"🐤", poulet:"🐔", dinde:"🦃", dindon:"🦃",
-    oie:"🦢", jars:"🦢", canard:"🦆", cane:"🦆", caneton:"🦆", lama:"🦙", alpaga:"🦙", chameau:"🐫", dromadaire:"🐪",
+    oie:"🦢", canard:"🦆", caneton:"🦆", lama:"🦙", alpaga:"🦙", chameau:"🐫", dromadaire:"🐪",
     // sauvages
     lion:"🦁", lionne:"🦁", lionceau:"🦁", tigre:"🐯", tigresse:"🐯", loup:"🐺", louve:"🐺", louveteau:"🐺",
     renard:"🦊", renarde:"🦊", ours:"🐻", ourse:"🐻", ourson:"🐻", panda:"🐼", koala:"🐨",
@@ -1452,27 +1453,27 @@ const DICT_B64 = "H4sIAAAAAAACA2RdaZPjKBL9Pv9SXWbU7FpWDQLHVP/6DZH5DrwR3cXLkyMTCa
     phoque:"🦭", otarie:"🦭", morse:"🦭", dauphin:"🐬", baleine:"🐋", cachalot:"🐋", orque:"🐋", narval:"🐋",
     requin:"🦈", poulpe:"🐙", pieuvre:"🐙", calmar:"🦑", seiche:"🦑", encornet:"🦑",
     crabe:"🦀", tourteau:"🦀", homard:"🦞", langouste:"🦞", ecrevisse:"🦞", crevette:"🦐", gambas:"🦐",
-    huitre:"🦪", moule:"🦪", palourde:"🦪", coquillage:"🦪", meduse:"🪼", oursin:"🦔", etoiledemer:"⭐",
+    huitre:"🦪", palourde:"🦪", coquillage:"🦪", meduse:"🪼", oursin:"🦔", etoiledemer:"⭐",
     poisson:"🐟", truite:"🐟", saumon:"🐟", carpe:"🐟", brochet:"🐟", sandre:"🐟", sardine:"🐟", anchois:"🐟",
     hareng:"🐟", anguille:"🐟", morue:"🐟", cabillaud:"🐟", thon:"🐟", maquereau:"🐟", loche:"🐟", perche:"🐟",
-    gardon:"🐟", goujon:"🐟", sole:"🐟", turbot:"🐟", raie:"🐟", murene:"🐟", esturgeon:"🐟", barbue:"🐟",
+    gardon:"🐟", goujon:"🐟", turbot:"🐟", murene:"🐟", esturgeon:"🐟", barbue:"🐟",
     hippocampe:"🐠", poissonrouge:"🐠", guppy:"🐠", piranha:"🐠",
     // oiseaux
     aigle:"🦅", faucon:"🦅", buse:"🦅", epervier:"🦅", milan:"🦅", vautour:"🦅", condor:"🦅", busard:"🦅",
-    hibou:"🦉", chouette:"🦉", duc:"🦉", effraie:"🦉",
+    hibou:"🦉", chouette:"🦉", effraie:"🦉",
     corbeau:"🐦", corneille:"🐦", freux:"🐦", choucas:"🐦", pie:"🐦", geai:"🐦", moineau:"🐦", piaf:"🐦",
     mesange:"🐦", rougegorge:"🐦", hirondelle:"🐦", martinet:"🐦", pigeon:"🐦", ramier:"🐦",
     tourterelle:"🕊️", colombe:"🕊️", mouette:"🕊️", goeland:"🕊️", sterne:"🕊️",
-    cormoran:"🐦", pelican:"🐦", fou:"🐦", flamant:"🦩", paon:"🦚", perroquet:"🦜", perruche:"🦜", toucan:"🦜",
-    ara:"🦜", cacatoes:"🦜", mainate:"🦜", autruche:"🦤", emeu:"🦤", nandou:"🦤", casoar:"🦤", dodo:"🦤",
-    cygne:"🦢", heron:"🐦", aigrette:"🐦", cigogne:"🐦", grue:"🐦", ibis:"🐦", spatule:"🐦",
+    cormoran:"🐦", pelican:"🐦", flamant:"🦩", paon:"🦚", perroquet:"🦜", perruche:"🦜", toucan:"🦜",
+    cacatoes:"🦜", mainate:"🦜", autruche:"🦤", emeu:"🦤", nandou:"🦤", casoar:"🦤", dodo:"🦤",
+    cygne:"🦢", heron:"🐦", aigrette:"🐦", cigogne:"🐦", ibis:"🐦", spatule:"🐦",
     manchot:"🐧", pingouin:"🐧", macareux:"🐧",
     perdrix:"🐦", caille:"🐦", faisan:"🐦", becasse:"🐦", alouette:"🐦", merle:"🐦", grive:"🐦",
     rossignol:"🐦", pinson:"🐦", chardonneret:"🐦", linotte:"🐦", bouvreuil:"🐦", verdier:"🐦",
-    pivert:"🐦", pic:"🐦", coucou:"🐦", huppe:"🐦", bergeronnette:"🐦", troglodyte:"🐦", roitelet:"🐦",
+    pivert:"🐦", coucou:"🐦", bergeronnette:"🐦", troglodyte:"🐦", roitelet:"🐦",
     martinpecheur:"🐦", engoulevent:"🐦", colibri:"🐦", canari:"🐦", serin:"🐦",
     // reptiles & amphibiens
-    serpent:"🐍", vipere:"🐍", couleuvre:"🐍", cobra:"🐍", python:"🐍", boa:"🐍", anaconda:"🐍", mamba:"🐍",
+    serpent:"🐍", vipere:"🐍", couleuvre:"🐍", cobra:"🐍", python:"🐍", anaconda:"🐍", mamba:"🐍",
     lezard:"🦎", gecko:"🦎", iguane:"🦎", cameleon:"🦎", varan:"🦎", orvet:"🦎",
     crocodile:"🐊", alligator:"🐊", caiman:"🐊", gavial:"🐊",
     tortue:"🐢", cistude:"🐢", grenouille:"🐸", crapaud:"🐸", rainette:"🐸", tetard:"🐸",
@@ -1481,14 +1482,41 @@ const DICT_B64 = "H4sIAAAAAAACA2RdaZPjKBL9Pv9SXWbU7FpWDQLHVP/6DZH5DrwR3cXLkyMTCa
     papillon:"🦋", chenille:"🐛", cocon:"🐛", abeille:"🐝", guepe:"🐝", frelon:"🐝", bourdon:"🐝",
     fourmi:"🐜", termite:"🐜", coccinelle:"🐞", scarabee:"🪲", hanneton:"🪲", lucane:"🪲", bousier:"🪲",
     grillon:"🦗", criquet:"🦗", sauterelle:"🦗", mante:"🦗", cigale:"🦗",
-    mouche:"🪰", moucheron:"🪰", moustique:"🦟", taon:"🦟", puce:"🦟", pou:"🦟", tique:"🕷️",
-    araignee:"🕷️", tarentule:"🕷️", scorpion:"🦂", mille:"🐛", mite:"🦋",
+    mouche:"🪰", moucheron:"🪰", moustique:"🦟", taon:"🦟", tique:"🕷️",
+    araignee:"🕷️", tarentule:"🕷️", scorpion:"🦂", mite:"🦋",
     escargot:"🐌", limace:"🐌", ver:"🪱", lombric:"🪱", asticot:"🪱", sangsue:"🪱", libellule:"🦟",
     cafard:"🪳", blatte:"🪳", punaise:"🪲", perceoreille:"🪲",
+    // compléments (oiseaux, mammifères, poissons, petites bêtes)
+    etourneau:"🐦", sansonnet:"🐦", fauvette:"🐦", pouillot:"🐦", sittelle:"🐦", grimpereau:"🐦",
+    bruant:"🐦", pipit:"🐦", traquet:"🐦", tarier:"🐦", rougequeue:"🐦", accenteur:"🐦", tarin:"🐦",
+    sizerin:"🐦", loriot:"🐦", cassenoix:"🐦", crave:"🐦", chocard:"🐦", vanneau:"🐦", pluvier:"🐦",
+    courlis:"🐦", becassine:"🐦", foulque:"🐦", rale:"🐦", harle:"🦆", garrot:"🦆", sarcelle:"🦆",
+    colvert:"🦆", eider:"🦆", macreuse:"🦆", fuligule:"🦆", guillemot:"🐧", petrel:"🐦", puffin:"🐦",
+    albatros:"🐦", fregate:"🐦", tetras:"🐦", gelinotte:"🐦", lagopede:"🐦", hulotte:"🦉", cheveche:"🦉",
+    guepier:"🐦", rollier:"🐦", torcol:"🐦", cincle:"🐦", gobemouche:"🐦", ortolan:"🐦", becfigue:"🐦",
+    okapi:"🦒", gnou:"🦬", oryx:"🦌", springbok:"🦌", phacochere:"🐗", mangouste:"🦫", lemurien:"🐵",
+    maki:"🐵", tamarin:"🐵", capucin:"🐵", macaque:"🐵", mandrill:"🐵", bonobo:"🦍", gibbon:"🦧",
+    bouquetin:"🐐", chamois:"🐐", isard:"🐐", mouflon:"🐑", yack:"🐃", zebu:"🐂", wapiti:"🦌",
+    daim:"🦌", sika:"🦌", muntjac:"🦌", saiga:"🦌", genette:"🐈", civette:"🐈", serval:"🐆",
+    caracal:"🐆", chinchilla:"🐹", degu:"🐹", octodon:"🐹", ragondin:"🦫", rat_musque:"🐀",
+    bar:"🐟", dorade:"🐟", rouget:"🐟", lieu:"🐟", colin:"🐟", merlan:"🐟", congre:"🐟", vive:"🐟",
+    gobie:"🐟", epinoche:"🐟", ablette:"🐟", tanche:"🐟", silure:"🐟", omble:"🐟", lotte:"🐟",
+    barbeau:"🐟", chevesne:"🐟", vandoise:"🐟", corb:"🐟", lamproie:"🐟", plie:"🐟", limande:"🐟",
+    luciole:"🪲", ephemere:"🦟", cloporte:"🪲", scolopendre:"🐛", phasme:"🦗", carabe:"🪲",
+    dytique:"🪲", charancon:"🪲", puceron:"🐜", cicadelle:"🦗", gendarme:"🪲", capricorne:"🪲",
+    bombyx:"🦋", sphinx:"🦋", machaon:"🦋", vulcain:"🦋", morpho:"🦋", zygene:"🦋",
     // imaginaires (les pseudos sont libres)
     dragon:"🐉", licorne:"🦄", dinosaure:"🦕", diplodocus:"🦕", trex:"🦖", raptor:"🦖", mammouth:"🦣",
     phenix:"🦅", griffon:"🦅", kraken:"🐙", yeti:"🦧", monstre:"👾", bestiole:"🐾", bebete:"🐾",
   };
+  // Adjectifs des pseudos générés : jamais interprétés comme un animal
+  const ADJ_GEN = new Set(`curieux curieuse pantois pantoise chetif chetive badin badine vigoureux vigoureuse
+  stupide ruse rusee robuste vaillant vaillante valeureux valeureuse solide aberrant aberrante dedaigneux
+  dedaigneuse repenti repentie resilient resiliente afflige affligee tenebreux tenebreuse sinistre
+  complaisant complaisante hirsute trivial triviale gregaire caduc caduque demode demodee desseche dessechee
+  sage rancunier ranciere rancuniere magnanime indulgent indulgente amer amere malin maligne ravi ravie
+  sournois sournoise degarni degarnie fringant fringante vif vive sympa timide tordu tordue taiseux taiseuse
+  fatigue fatiguee agile`.split(/\s+/));
   const deacc = (s) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
   const SINGULIER = (w) => (w.length > 4 && /[sx]$/.test(w) ? w.slice(0, -1) : w);
   // animaux assez longs pour être cherchés n'importe où sans faux positif
@@ -1498,11 +1526,14 @@ const DICT_B64 = "H4sIAAAAAAACA2RdaZPjKBL9Pv9SXWbU7FpWDQLHVP/6DZH5DrwR3cXLkyMTCa
     const raw = String(pseudo || "");
     // 1) on découpe le pseudo (majuscules, chiffres, séparateurs) et on cherche une correspondance exacte
     const parts = raw.split(/(?=[A-ZÀ-ÖØ-Þ])|[^A-Za-zÀ-ÿ]+/).filter(Boolean).map((p) => deacc(p));
-    for (let i = parts.length - 1; i >= 0; i--) {          // le dernier segment d'abord : « CurieuseChenille » -> chenille
+    let best = "", bestLen = 0;
+    for (let i = parts.length - 1; i >= 0; i--) {          // on garde le nom le PLUS LONG : « LouveLeBest » -> louve
       const w = parts[i];
-      const e = FAUNE[w] || FAUNE[SINGULIER(w)];           // « Chenilles » comme « Chenille », « perdrix » tel quel
-      if (e) return e;
+      if (ADJ_GEN.has(w) || ADJ_GEN.has(SINGULIER(w))) continue;
+      const key = FAUNE[w] ? w : (FAUNE[SINGULIER(w)] ? SINGULIER(w) : "");
+      if (key && key.length > bestLen){ best = FAUNE[key]; bestLen = key.length; }
     }
+    if (best) return best;
     // 2) sinon, recherche dans la chaîne entière, mais seulement pour les noms longs
     const flat = SINGULIER(deacc(raw).replace(/[^a-z]/g, ""));
     for (const k of LONGS) if (flat.includes(k)) return FAUNE[k];
@@ -1682,8 +1713,11 @@ const DICT_B64 = "H4sIAAAAAAACA2RdaZPjKBL9Pv9SXWbU7FpWDQLHVP/6DZH5DrwR3cXLkyMTCa
     const svg = d3.select(host).select("svg").attr("viewBox", `0 0 ${W} ${H}`);
     const scene = svg.select(".scene");
     const hulls = scene.select(".hulls");
+    // en thème clair, sur fond crème, il faut des traits nettement plus foncés pour qu'ils se voient
+    const isDark = () => document.documentElement.getAttribute("data-theme") === "dark";
+    const clanColor = (clan) => `hsl(${hueOf(clan)} ${isDark() ? 48 : 62}% ${isDark() ? 58 : 36}%)`;
     const link = scene.select(".links").selectAll("path").data(links).join("path").attr("class", "lnk")
-      .attr("stroke", (d) => `hsl(${hueOf(nodeById.get(typeof d.target === "object" ? d.target.id : d.target).clan)} 45% 55%)`);
+      .attr("stroke", (d) => clanColor(nodeById.get(typeof d.target === "object" ? d.target.id : d.target).clan));
     const node = scene.select(".dots").selectAll("g").data(nodes).join("g").attr("class", "beast");
     node.append("circle").attr("class", (d) => "pill" + (d.me ? " me" : "")).attr("r", rOf);
     node.append("text").attr("class", "emo").attr("text-anchor", "middle").attr("dy", ".02em")
@@ -1709,18 +1743,23 @@ const DICT_B64 = "H4sIAAAAAAACA2RdaZPjKBL9Pv9SXWbU7FpWDQLHVP/6DZH5DrwR3cXLkyMTCa
 
     let k = 1, ticks = 0, lineage = new Set(), selId = "";
     const order = [...nodes].sort((a, b) => (b.me?1:0)-(a.me?1:0) || b.size - a.size);
-    const lineageOf = (code) => {                              // ancêtres + soi + toute la descendance
+    // Lignée directe : la remontée jusqu'à la souche + toute la descendance.
+    // Surtout pas les frères, cousins ou autres branches : on ne descend QUE depuis soi.
+    const lineageOf = (code) => {
       const set = new Set();
-      for (const e of pathTo(code)) set.add(e.code);
-      const st = [code], seenL = new Set();
-      while (st.length){ const c = st.pop(); if (seenL.has(c)) continue; seenL.add(c); set.add(c); for (const kk of (kids.get(c) || [])) st.push(kk); }
+      for (const e of pathTo(code)) set.add(e.code);          // parrain, grand-parrain, jusqu'à la souche
+      const st = [code];
+      while (st.length){                                       // puis ses filleuls, et les leurs
+        const c = st.pop();
+        for (const kk of (kids.get(c) || [])) if (!set.has(kk)){ set.add(kk); st.push(kk); }
+      }
       return set;
     };
     const paint = () => {
       node.select("circle").classed("lin", (d) => lineage.has(d.id))
         .attr("stroke-width", (d) => ((lineage.has(d.id) || d.id === selId) ? 3 : 1.5) / k);
       link.attr("stroke", (d) => (lineage.has(d.source.id) && lineage.has(d.target.id))
-          ? "var(--green)" : `hsl(${hueOf(d.target.clan)} 45% 55%)`)
+          ? "var(--green)" : clanColor(d.target.clan))
         .attr("stroke-width", (d) => ((lineage.has(d.source.id) && lineage.has(d.target.id)) ? 2.6 : 1.4) / k);
     };
     const relabel = () => {
@@ -1741,7 +1780,7 @@ const DICT_B64 = "H4sIAAAAAAACA2RdaZPjKBL9Pv9SXWbU7FpWDQLHVP/6DZH5DrwR3cXLkyMTCa
       for (const n of nodes){ if (!byClan.has(n.clan)) byClan.set(n.clan, []); byClan.get(n.clan).push(n); }
       const data = [...byClan].filter(([, v]) => v.length > 2);
       hulls.selectAll("path").data(data, (d) => d[0]).join("path")
-        .attr("class", "hull").attr("fill", (d) => `hsl(${hueOf(d[0])} 60% 50%)`)
+        .attr("class", "hull").attr("fill", (d) => `hsl(${hueOf(d[0])} 62% ${isDark() ? 52 : 44}%)`)
         .attr("d", (d) => {
           const pts = [];
           for (const n of d[1]){ const r = rOf(n) + 14; for (let a = 0; a < Math.PI*2; a += Math.PI/4) pts.push([n.x + Math.cos(a)*r, n.y + Math.sin(a)*r]); }
