@@ -365,7 +365,7 @@ body:not(.online) #recordsBtn{display:none}
     <span class="user" id="user"></span>
     <button class="icobtn" id="recordsBtn" title="Palmarès">🏆</button>
     <button class="icobtn" id="animalsBtn" title="Mes animaux">🐾</button>
-    <button class="icobtn" id="treeBtn" title="La basse-cour">🐔</button>
+    <button class="icobtn" id="treeBtn" title="La basse-cour">🦆</button>
     <button class="icobtn" id="settingsBtn" title="Paramètres">⚙️</button>
     <button class="icobtn" id="accountBtn">Se connecter</button>
     <button class="icobtn" id="lobbyBtn" title="Revenir au lobby">↩ Lobby</button>
@@ -1438,7 +1438,7 @@ const DICT_B64 = "H4sIAAAAAAACA2RdaZPjKBL9Pv9SXWbU7FpWDQLHVP/6DZH5DrwR3cXLkyMTCa
     oie:"🦢", canard:"🦆", caneton:"🦆", lama:"🦙", alpaga:"🦙", chameau:"🐫", dromadaire:"🐪",
     // sauvages
     lion:"🦁", lionne:"🦁", lionceau:"🦁", tigre:"🐯", tigresse:"🐯", loup:"🐺", louve:"🐺", louveteau:"🐺",
-    renard:"🦊", renarde:"🦊", ours:"🐻", ourse:"🐻", ourson:"🐻", panda:"🐼", koala:"🐨",
+    renard:"🦊", renarde:"🦊", ours:"🐻", ourson:"🐻", panda:"🐼", koala:"🐨",
     singe:"🦧", guenon:"🦧", gorille:"🦍", chimpanze:"🐵", ouistiti:"🐵", babouin:"🐵",
     elephant:"🐘", girafe:"🦒", zebre:"🦓", rhinoceros:"🦏", hippopotame:"🦛",
     cerf:"🦌", biche:"🦌", faon:"🦌", chevreuil:"🦌", caribou:"🦌", renne:"🦌", elan:"🦌", orignal:"🦌",
@@ -1509,35 +1509,18 @@ const DICT_B64 = "H4sIAAAAAAACA2RdaZPjKBL9Pv9SXWbU7FpWDQLHVP/6DZH5DrwR3cXLkyMTCa
     dragon:"🐉", licorne:"🦄", dinosaure:"🦕", diplodocus:"🦕", trex:"🦖", raptor:"🦖", mammouth:"🦣",
     phenix:"🦅", griffon:"🦅", kraken:"🐙", yeti:"🦧", monstre:"👾", bestiole:"🐾", bebete:"🐾",
   };
-  // Adjectifs des pseudos générés : jamais interprétés comme un animal
-  const ADJ_GEN = new Set(`curieux curieuse pantois pantoise chetif chetive badin badine vigoureux vigoureuse
-  stupide ruse rusee robuste vaillant vaillante valeureux valeureuse solide aberrant aberrante dedaigneux
-  dedaigneuse repenti repentie resilient resiliente afflige affligee tenebreux tenebreuse sinistre
-  complaisant complaisante hirsute trivial triviale gregaire caduc caduque demode demodee desseche dessechee
-  sage rancunier ranciere rancuniere magnanime indulgent indulgente amer amere malin maligne ravi ravie
-  sournois sournoise degarni degarnie fringant fringante vif vive sympa timide tordu tordue taiseux taiseuse
-  fatigue fatiguee agile`.split(/\s+/));
   const deacc = (s) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
   const SINGULIER = (w) => (w.length > 4 && /[sx]$/.test(w) ? w.slice(0, -1) : w);
   // animaux assez longs pour être cherchés n'importe où sans faux positif
-  const LONGS = Object.keys(FAUNE).filter((k) => k.length >= 6).sort((a, b) => b.length - a.length);
+  const LONGS = Object.keys(FAUNE).sort((a, b) => b.length - a.length);   // du plus long au plus court
 
   function animalOf(pseudo) {
-    const raw = String(pseudo || "");
-    // 1) on découpe le pseudo (majuscules, chiffres, séparateurs) et on cherche une correspondance exacte
-    const parts = raw.split(/(?=[A-ZÀ-ÖØ-Þ])|[^A-Za-zÀ-ÿ]+/).filter(Boolean).map((p) => deacc(p));
-    let best = "", bestLen = 0;
-    for (let i = parts.length - 1; i >= 0; i--) {          // on garde le nom le PLUS LONG : « LouveLeBest » -> louve
-      const w = parts[i];
-      if (ADJ_GEN.has(w) || ADJ_GEN.has(SINGULIER(w))) continue;
-      const key = FAUNE[w] ? w : (FAUNE[SINGULIER(w)] ? SINGULIER(w) : "");
-      if (key && key.length > bestLen){ best = FAUNE[key]; bestLen = key.length; }
-    }
-    if (best) return best;
-    // 2) sinon, recherche dans la chaîne entière, mais seulement pour les noms longs
-    const flat = SINGULIER(deacc(raw).replace(/[^a-z]/g, ""));
+    // Grep tout simple : le nom d'animal le PLUS LONG contenu dans le pseudo.
+    // Les faux positifs (Château -> chat, Million -> lion) sont assumés : la règle est
+    // limpide et le résultat plutôt drôle.
+    const flat = deacc(String(pseudo || "")).replace(/[^a-z]/g, "");
     for (const k of LONGS) if (flat.includes(k)) return FAUNE[k];
-    return "🐾";                                            // pas d'animal : empreinte de pattes
+    return "🐾";                                            // aucun animal : empreinte de pattes
   }
 
   // ---------- La Basse-cour (parrainage) ----------
@@ -1778,12 +1761,14 @@ const DICT_B64 = "H4sIAAAAAAACA2RdaZPjKBL9Pv9SXWbU7FpWDQLHVP/6DZH5DrwR3cXLkyMTCa
     const drawHulls = () => {                                  // un halo doux par clan
       const byClan = new Map();
       for (const n of nodes){ if (!byClan.has(n.clan)) byClan.set(n.clan, []); byClan.get(n.clan).push(n); }
-      const data = [...byClan].filter(([, v]) => v.length > 2);
+      const data = [...byClan].filter(([, v]) => v.length >= 2);   // les duos aussi ont leur zone
       hulls.selectAll("path").data(data, (d) => d[0]).join("path")
         .attr("class", "hull").attr("fill", (d) => `hsl(${hueOf(d[0])} 62% ${isDark() ? 52 : 44}%)`)
         .attr("d", (d) => {
           const pts = [];
-          for (const n of d[1]){ const r = rOf(n) + 14; for (let a = 0; a < Math.PI*2; a += Math.PI/4) pts.push([n.x + Math.cos(a)*r, n.y + Math.sin(a)*r]); }
+          // 16 points par bête : avec seulement deux membres, 8 points donnaient une enveloppe
+          // quasi plate (un trait) au lieu d'une zone.
+          for (const n of d[1]){ const r = rOf(n) + 14; for (let a = 0; a < Math.PI*2; a += Math.PI/8) pts.push([n.x + Math.cos(a)*r, n.y + Math.sin(a)*r]); }
           const h = d3.polygonHull(pts);
           return h ? "M" + h.join("L") + "Z" : null;
         });
