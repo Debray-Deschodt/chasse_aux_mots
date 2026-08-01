@@ -42,6 +42,13 @@ body{
 }
 input, textarea{ -webkit-user-select:text; user-select:text; -webkit-touch-callout:default }
 .app{width:100%; max-width:460px; display:flex; flex-direction:column; gap:14px}
+@media (max-height: 700px){
+  #treeCard{padding:14px}
+  #treeCard h2{font-size:24px; margin:8px 0 2px}
+  #treeCard .anhint{display:none}          /* sur écran court, la place va au graphe */
+  .treewrap{margin:4px 0 8px}
+  #treeClose{padding:11px}
+}
 @media (max-height: 720px){
   .app{gap:9px}
   .brand h1{font-size:clamp(24px, 7vw, 34px)}
@@ -76,8 +83,9 @@ body:not(.online) #accountBtn{display:none}
 #settingsModal{z-index:60}
 #animalsModal{z-index:60}
 #treeModal{z-index:60}
-#treeCard{max-height:82vh; display:flex; flex-direction:column; overflow:hidden}
-.treewrap{flex:1 1 auto; min-height:min(56vh,420px); overflow-y:auto; overflow-x:hidden; -webkit-overflow-scrolling:touch; overscroll-behavior:contain; margin:6px 0 12px}
+#treeCard{max-height:min(92vh, 100dvh - 44px); display:flex; flex-direction:column; overflow:hidden}
+#treeCard .kicker, #treeCard h2, #treeCard .anhint, #treeCard .refbar, #treeCard #treeClose{flex:0 0 auto}
+.treewrap{flex:1 1 auto; min-height:0; overflow-y:auto; overflow-x:hidden; -webkit-overflow-scrolling:touch; overscroll-behavior:contain; margin:6px 0 12px}
 
 /* Fil d'Ariane : la lignée dans laquelle on navigue */
 .crumbs{display:flex; align-items:center; flex-wrap:wrap; gap:3px 5px; font-size:11px; font-weight:700;
@@ -87,7 +95,7 @@ body:not(.online) #accountBtn{display:none}
 .crumbs .cur{color:var(--muted)}
 .crumbs .mine{margin-left:auto; color:var(--magenta); font-weight:800}
 .treewrap.graph{display:flex; flex-direction:column; overflow:hidden}
-.treewrap.graph .disc{flex:1 1 auto; height:auto !important; min-height:140px}
+.treewrap.graph .disc{flex:1 1 auto; height:auto !important; min-height:120px}
 .treewrap.graph .tstats, .treewrap.graph .ttabs, .treewrap.graph .discsel{flex:0 0 auto}
 
 /* Le foyer où l'on se trouve */
@@ -1615,9 +1623,9 @@ const DICT_B64 = "H4sIAAAAAAACA2RdaZPjKBL9Pv9SXWbU7FpWDQLHVP/6DZH5DrwR3cXLkyMTCa
     const branchCount = treeNodes.filter((n) => isRoot(n) && (kids.get(n.code) || []).length).length;
     let maxDepth = 0;
     for (const n of treeNodes) maxDepth = Math.max(maxDepth, pathTo(n.code).length - 1);
-    return `<div class="tstats">${treeNodes.length} joueurs · ${branchCount} clan${branchCount>1?"s":""} · ${maxDepth + 1} génération${maxDepth?"s":""}</div>
-      <div class="disc" id="disc" style="height:min(56vh,420px)"><div class="dload">Chargement de la basse-cour…</div></div>
-      <div class="discsel" id="discSel"><span class="hint">Double-touche une bête pour ouvrir sa nichée.</span></div>`;
+    return `<div class="tstats">${treeNodes.length} joueurs · ${branchCount} meute${branchCount>1?"s":""} · ${maxDepth + 1} génération${maxDepth?"s":""}</div>
+      <div class="disc" id="disc" style="height:min(48vh,420px)"><div class="dload">Chargement de la basse-cour…</div></div>
+      <div class="discsel" id="discSel"><span class="hint">Double-clic sur un profil pour l'afficher.</span></div>`;
   }
   async function mountGraph(){
     if (graphStop) { graphStop(); graphStop = null; }   // on démonte le graphe précédent (écouteurs compris)
@@ -1706,7 +1714,7 @@ const DICT_B64 = "H4sIAAAAAAACA2RdaZPjKBL9Pv9SXWbU7FpWDQLHVP/6DZH5DrwR3cXLkyMTCa
     node.attr("transform", (d) => `translate(${d.x},${d.y})`);
 
     const sim = d3.forceSimulation(nodes)
-      // liens courts et fermes : chaque bête colle à sa nichée
+      // liens courts et fermes : chaque joueur colle à sa meute
       .force("link", d3.forceLink(links).id((d) => d.id).distance((d) => 46 + rOf(d.source) * .4).strength(.55))
       .force("charge", d3.forceManyBody().strength(-160))
       .force("x", d3.forceX(W/2).strength(.05))
@@ -1749,10 +1757,10 @@ const DICT_B64 = "H4sIAAAAAAACA2RdaZPjKBL9Pv9SXWbU7FpWDQLHVP/6DZH5DrwR3cXLkyMTCa
       lbl.classed("hid", (d) => !vis.has(d.id));
     };
     // Contour arrondi : les sommets de l'enveloppe reliés par une courbe fermée.
-    // Un polygone brut donne une zone anguleuse qui « claque » quand les bêtes bougent.
+    // Un polygone brut donne une zone anguleuse qui « claque » quand les joueurs bougent.
     const hullCurve = d3.line().curve(d3.curveCatmullRomClosed.alpha(0.5));
     // Contour : l'enveloppe convexe (jamais creuse) rééchantillonnée sur 36 angles fixes.
-    // Échantillonner directement autour des bêtes creusait la zone entre elles -> forme en trèfle.
+    // Échantillonner directement autour des joueurs creusait la zone entre eux -> forme en trèfle.
     // Ici le nombre de sommets reste constant, donc la zone se déforme sans à-coups.
     const RAYS = 36, smooth = new Map();
     const clanShape = (members) => {
@@ -1816,7 +1824,7 @@ const DICT_B64 = "H4sIAAAAAAACA2RdaZPjKBL9Pv9SXWbU7FpWDQLHVP/6DZH5DrwR3cXLkyMTCa
     const zoom = d3.zoom().scaleExtent([0.15, 6]).on("zoom", (ev) => {
       k = ev.transform.k; scene.attr("transform", ev.transform); relabel();
     });
-    svg.call(zoom).on("dblclick.zoom", null);   // le double-clic sert à ouvrir la nichée
+    svg.call(zoom).on("dblclick.zoom", null);   // le double-clic sert à ouvrir le profil
     const fitT = () => {
       let maxR = 1;
       for (const n of nodes) maxR = Math.max(maxR, Math.hypot((n.x || 0) - W/2, (n.y || 0) - H/2) + rOf(n) + 14);
@@ -1833,7 +1841,7 @@ const DICT_B64 = "H4sIAAAAAAACA2RdaZPjKBL9Pv9SXWbU7FpWDQLHVP/6DZH5DrwR3cXLkyMTCa
     const exitBtn = el("discExit");
     if (exitBtn) exitBtn.onclick = (ev) => { ev.stopPropagation(); toggleFullscreen(false); };
 
-    // Glissé maison, en événements pointeur AVEC CAPTURE : la bête saisie continue de recevoir
+    // Glissé maison, en événements pointeur AVEC CAPTURE : le joueur saisi continue de recevoir
     // les mouvements même si une autre passe sous le curseur.
     const ptr = (ev) => d3.pointer(ev, scene.node());
     let drag = null;
@@ -1862,7 +1870,7 @@ const DICT_B64 = "H4sIAAAAAAACA2RdaZPjKBL9Pv9SXWbU7FpWDQLHVP/6DZH5DrwR3cXLkyMTCa
       drag = null;
       if (!moved){ d.fx = d.fy = null; return; }
       sim.alphaTarget(0);
-      d.fx = d.fy = null;                                      // relâchée : elle redevient une bête comme les autres
+      d.fx = d.fy = null;                                      // relâché : il redevient un joueur comme les autres
       sim.alpha(.35).restart();
     };
     node.on("pointerup", endDrag).on("pointercancel", endDrag);
@@ -1887,11 +1895,11 @@ const DICT_B64 = "H4sIAAAAAAACA2RdaZPjKBL9Pv9SXWbU7FpWDQLHVP/6DZH5DrwR3cXLkyMTCa
     });
     svg.on("click", () => {
       node.select("circle").classed("sel", false); selId = ""; lineage = new Set(); paint();
-      sel.innerHTML = `<span class="hint">Double-touche une bête pour ouvrir sa nichée.</span>`;
+      sel.innerHTML = `<span class="hint">Double-clic sur un profil pour l'afficher.</span>`;
     });
 
     // Plein écran : on remonte le graphe pour qu'il occupe toute la surface,
-    // en conservant la disposition (positions et bêtes ancrées).
+    // en conservant la disposition des joueurs.
     toggleFullscreen = (want) => {
       const on = want === undefined ? !host.classList.contains("full") : want;
       graphPos = new Map(nodes.map((n) => [n.id, { nx: (n.x - W/2) / SCALE, ny: (n.y - H/2) / SCALE }]));
@@ -1941,12 +1949,12 @@ const DICT_B64 = "H4sIAAAAAAACA2RdaZPjKBL9Pv9SXWbU7FpWDQLHVP/6DZH5DrwR3cXLkyMTCa
       </div>`;
     }).join("");
     if (NET.code && treeIdx.byCode.has(NET.code) && treeFocus !== NET.code)
-      crumbs += `<button class="cb mine" data-go="${NET.code}">↩ Ma nichée</button>`;
+      crumbs += `<button class="cb mine" data-go="${NET.code}">↩ Ma meute</button>`;
     return `<input class="tsearch" id="treeSearch" type="search" placeholder="Rechercher un joueur" value="${escT(treeQuery)}">`
       + `<div class="tsres" id="tsRes"></div>`
       + `<div class="crumbs">${crumbs}</div>${head}`
       + (rows || (NET.code && treeFocus === NET.code
-          ? `<div class="anhint">Ta nichée est vide. Invite quelqu'un à la rejoindre.</div>`
+          ? `<div class="anhint">Ta meute est vide. Invite quelqu'un à la rejoindre.</div>`
           : `<div class="anhint">${treeFocus ? "Ce joueur n'a encore invité personne." : "Aucun joueur pour l'instant."}</div>`));
   }
   async function openTree(){
@@ -1956,7 +1964,7 @@ const DICT_B64 = "H4sIAAAAAAACA2RdaZPjKBL9Pv9SXWbU7FpWDQLHVP/6DZH5DrwR3cXLkyMTCa
     el("treeCard").innerHTML = `
       <div class="kicker">Communauté</div>
       <h2>La Basse-cour</h2>
-      <div class="anhint">Elle s'agrandit par le bouche-à-oreille : chaque joueur invité fonde sa nichée.</div>
+      <div class="anhint">Elle s'agrandit par le bouche-à-oreille : chaque joueur invité s'ajoute à ta meute.</div>
       <div class="treewrap" id="treeView"><div class="anhint">Chargement…</div></div>
       <div class="refbar" id="treeActions"></div>
       <button class="btn ghost" id="treeClose" style="margin-top:8px">Fermer</button>`;
