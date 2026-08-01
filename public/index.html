@@ -163,10 +163,10 @@ body.noscroll{overflow:hidden}
 .tsnone{font-size:12px; color:var(--muted); padding:2px 2px 8px; text-align:left}
 .pstats{font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.09em; color:var(--muted); margin:0 0 9px}
 .ptable{display:flex; flex-direction:column; gap:7px}
-.prow{display:flex; align-items:baseline; gap:9px; padding:11px 13px; border:1.5px solid var(--line); border-radius:12px;
+.prow{display:flex; align-items:center; gap:9px; padding:11px 13px; border:1.5px solid var(--line); border-radius:12px;
   background:var(--panel); text-align:left}
 .prow .pk{flex:0 0 auto; font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:.08em; color:var(--muted); width:96px}
-.prow .pv{flex:0 0 auto; font-family:var(--display); font-size:19px; color:var(--ink)}
+.prow .pv{flex:0 0 auto; font-family:var(--display); font-size:19px; line-height:1; color:var(--ink)}
 .prow .pv b{font-weight:400}
 .prow .pd{flex:1 1 auto; font-size:11px; color:var(--muted); text-align:right}
 .prow.empty .pv{color:var(--muted); font-size:15px}
@@ -242,7 +242,8 @@ body:not(.online) #recordsBtn{display:none}
 .svgpath{position:absolute; inset:12px; z-index:3; pointer-events:none; overflow:visible}
 .svgpath polyline{fill:none; stroke:var(--magenta); stroke-width:12; stroke-linejoin:round; stroke-linecap:round; opacity:.42}
 
-.btn{font-family:var(--ui); font-weight:700; font-size:14px; text-transform:uppercase; letter-spacing:.04em; padding:14px; border-radius:11px; cursor:pointer; border:none}
+.btn{font-family:var(--ui); font-weight:700; font-size:14px; text-transform:uppercase; letter-spacing:.04em;
+  text-indent:.04em; padding:14px; border-radius:11px; cursor:pointer; border:none}
 .btn:active{transform:translateY(1px)}
 .btn.ghost{background:#fff; color:var(--ink); border:1.5px solid var(--line)}
 .btn.primary{background:var(--magenta); color:#fff}
