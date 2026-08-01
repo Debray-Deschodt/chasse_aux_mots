@@ -161,7 +161,6 @@ body.noscroll{overflow:hidden}
 .sugg .snm{font-size:14px; font-weight:700; color:var(--ink); overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
 .sugg .ssub{font-size:11px; color:var(--muted)}
 .tsnone{font-size:12px; color:var(--muted); padding:2px 2px 8px; text-align:left}
-.pstats{font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.09em; color:var(--muted); margin:0 0 9px}
 .ptable{display:flex; flex-direction:column; gap:7px}
 .prow{display:flex; align-items:center; gap:9px; padding:11px 13px; border:1.5px solid var(--line); border-radius:12px;
   background:var(--panel); text-align:left}
@@ -1636,7 +1635,7 @@ const DICT_B64 = "H4sIAAAAAAACA2RdaZPjKBL9Pv9SXWbU7FpWDQLHVP/6DZH5DrwR3cXLkyMTCa
     let d3;
     try { d3 = await loadD3(); }
     catch {
-      host.innerHTML = `<div class="dload">Basse-cour indisponible (hors connexion).<br>Utilise l'onglet Explorer.</div>`;
+      host.innerHTML = `<div class="dload">Basse-cour indisponible (hors connexion).<br>Réessaie une fois reconnecté.</div>`;
       return;
     }
     if (!el("disc")) return;                                  // fenêtre refermée entre-temps
@@ -1892,7 +1891,7 @@ const DICT_B64 = "H4sIAAAAAAACA2RdaZPjKBL9Pv9SXWbU7FpWDQLHVP/6DZH5DrwR3cXLkyMTCa
       d3.select(ev.currentTarget).select("circle").classed("sel", true);
       selId = d.id; lineage = lineageOf(d.id); paint();
       sel.innerHTML = `<span class="nm">${escT(d.name)}${d.size ? ` · ${d.size} dans sa lignée` : ""}</span>`
-        + `<button class="go" data-go2="${d.id}">Explorer</button>`;
+        + `<button class="go" data-go2="${d.id}">Afficher</button>`;
       const g = sel.querySelector("[data-go2]");
       if (g) g.onclick = () => { treeFocus = d.id; treeMode = "profile"; renderTree(); };
     });
@@ -1984,8 +1983,7 @@ const DICT_B64 = "H4sIAAAAAAACA2RdaZPjKBL9Pv9SXWbU7FpWDQLHVP/6DZH5DrwR3cXLkyMTCa
         + `<span class="pd">${r.found}/${r.total} mots · ${prop}%</span></div>`;
     };
     const emo = (data.emojis || []).join("");
-    box.innerHTML = `<div class="pstats">${data.rounds || 0} manche${(data.rounds || 0) > 1 ? "s" : ""} jouée${(data.rounds || 0) > 1 ? "s" : ""}</div>`
-      + `<div class="ptable">${line("Aujourd'hui", data.day)}${line("Cette semaine", data.week)}${line("Depuis toujours", data.all)}</div>`
+    box.innerHTML = `<div class="ptable">${line("Aujourd'hui", data.day)}${line("Cette semaine", data.week)}${line("Depuis toujours", data.all)}</div>`
       + (emo ? `<div class="pemos">${emo}</div>` : "");
   }
 
