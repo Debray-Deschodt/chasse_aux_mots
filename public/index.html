@@ -1758,6 +1758,31 @@ const DICT_B64 = "H4sIAAAAAAACA2RdaZPjKBL9Pv9SXWbU7FpWDQLHVP/6DZH5DrwR3cXLkyMTCa
       }
       lbl.classed("hid", (d) => !vis.has(d.id));
     };
+    // Contour arrondi : les sommets de l'enveloppe reliés par une courbe fermée.
+    // Un polygone brut donne une zone anguleuse qui « claque » quand les bêtes bougent.
+    const hullCurve = d3.line().curve(d3.curveCatmullRomClosed.alpha(0.5));
+    // Contour échantillonné à angle fixe (36 rayons depuis le centre du clan) : le nombre de
+    // sommets ne change jamais, donc la zone se déforme en continu au lieu de sauter quand
+    // l'enveloppe convexe gagne ou perd un sommet.
+    const RAYS = 36, smooth = new Map();
+    const clanShape = (members) => {
+      let cx = 0, cy = 0;
+      for (const n of members){ cx += n.x; cy += n.y; }
+      cx /= members.length; cy /= members.length;
+      const out = [];
+      for (let i = 0; i < RAYS; i++){
+        const a = i * 2 * Math.PI / RAYS, ca = Math.cos(a), sa = Math.sin(a);
+        let far = 0;
+        for (const n of members){                              // portée du clan dans cette direction
+          const proj = (n.x - cx) * ca + (n.y - cy) * sa;
+          const perp = Math.abs(-(n.x - cx) * sa + (n.y - cy) * ca);
+          const rad = rOf(n) + 15;
+          if (perp < rad) far = Math.max(far, proj + Math.sqrt(Math.max(0, rad*rad - perp*perp)));
+        }
+        out.push([cx + ca * far, cy + sa * far]);
+      }
+      return out;
+    };
     const drawHulls = () => {                                  // un halo doux par clan
       const byClan = new Map();
       for (const n of nodes){ if (!byClan.has(n.clan)) byClan.set(n.clan, []); byClan.get(n.clan).push(n); }
@@ -1765,12 +1790,13 @@ const DICT_B64 = "H4sIAAAAAAACA2RdaZPjKBL9Pv9SXWbU7FpWDQLHVP/6DZH5DrwR3cXLkyMTCa
       hulls.selectAll("path").data(data, (d) => d[0]).join("path")
         .attr("class", "hull").attr("fill", (d) => `hsl(${hueOf(d[0])} 62% ${isDark() ? 52 : 44}%)`)
         .attr("d", (d) => {
-          const pts = [];
-          // 16 points par bête : avec seulement deux membres, 8 points donnaient une enveloppe
-          // quasi plate (un trait) au lieu d'une zone.
-          for (const n of d[1]){ const r = rOf(n) + 14; for (let a = 0; a < Math.PI*2; a += Math.PI/8) pts.push([n.x + Math.cos(a)*r, n.y + Math.sin(a)*r]); }
-          const h = d3.polygonHull(pts);
-          return h ? "M" + h.join("L") + "Z" : null;
+          const target = clanShape(d[1]);
+          const prev = smooth.get(d[0]);
+          const cur = (prev && prev.length === RAYS)            // amorti : la zone suit sans à-coups
+            ? target.map((p, i) => [prev[i][0] + (p[0] - prev[i][0]) * .35, prev[i][1] + (p[1] - prev[i][1]) * .35])
+            : target;
+          smooth.set(d[0], cur);
+          return hullCurve(cur);
         });
     };
     const tick = () => {
@@ -1779,8 +1805,8 @@ const DICT_B64 = "H4sIAAAAAAACA2RdaZPjKBL9Pv9SXWbU7FpWDQLHVP/6DZH5DrwR3cXLkyMTCa
         return `M${d.source.x},${d.source.y}Q${(d.source.x+d.target.x)/2 + dy*.12},${(d.source.y+d.target.y)/2 - dx*.12} ${d.target.x},${d.target.y}`;
       });
       node.attr("transform", (d) => `translate(${d.x},${d.y})`);
-      if ((++ticks & 3) === 0) drawHulls();                    // halos : recalcul allégé
-      if (ticks % 6 === 0) relabel();
+      drawHulls();                                            // < 1 ms : inutile d'espacer, sinon la zone saccade
+      if ((++ticks % 6) === 0) relabel();
     };
     sim.on("tick", tick).on("end", () => { drawHulls(); relabel(); });
     tick(); drawHulls(); relabel();                            // rendu immédiat, sans attendre la simulation
