@@ -1761,25 +1761,36 @@ const DICT_B64 = "H4sIAAAAAAACA2RdaZPjKBL9Pv9SXWbU7FpWDQLHVP/6DZH5DrwR3cXLkyMTCa
     // Contour arrondi : les sommets de l'enveloppe reliés par une courbe fermée.
     // Un polygone brut donne une zone anguleuse qui « claque » quand les bêtes bougent.
     const hullCurve = d3.line().curve(d3.curveCatmullRomClosed.alpha(0.5));
-    // Contour échantillonné à angle fixe (36 rayons depuis le centre du clan) : le nombre de
-    // sommets ne change jamais, donc la zone se déforme en continu au lieu de sauter quand
-    // l'enveloppe convexe gagne ou perd un sommet.
+    // Contour : l'enveloppe convexe (jamais creuse) rééchantillonnée sur 36 angles fixes.
+    // Échantillonner directement autour des bêtes creusait la zone entre elles -> forme en trèfle.
+    // Ici le nombre de sommets reste constant, donc la zone se déforme sans à-coups.
     const RAYS = 36, smooth = new Map();
     const clanShape = (members) => {
+      const pts = [];
+      for (const n of members){
+        const r = rOf(n) + 15;
+        for (let a = 0; a < Math.PI*2; a += Math.PI/8) pts.push([n.x + Math.cos(a)*r, n.y + Math.sin(a)*r]);
+      }
+      const hull = d3.polygonHull(pts);
+      if (!hull) return null;
       let cx = 0, cy = 0;
-      for (const n of members){ cx += n.x; cy += n.y; }
-      cx /= members.length; cy /= members.length;
+      for (const p of hull){ cx += p[0]; cy += p[1]; }
+      cx /= hull.length; cy /= hull.length;
       const out = [];
       for (let i = 0; i < RAYS; i++){
         const a = i * 2 * Math.PI / RAYS, ca = Math.cos(a), sa = Math.sin(a);
-        let far = 0;
-        for (const n of members){                              // portée du clan dans cette direction
-          const proj = (n.x - cx) * ca + (n.y - cy) * sa;
-          const perp = Math.abs(-(n.x - cx) * sa + (n.y - cy) * ca);
-          const rad = rOf(n) + 15;
-          if (perp < rad) far = Math.max(far, proj + Math.sqrt(Math.max(0, rad*rad - perp*perp)));
+        let best = 0;
+        for (let j = 0, k = hull.length - 1; j < hull.length; k = j++){   // intersection rayon / arête
+          const x1 = hull[k][0] - cx, y1 = hull[k][1] - cy;
+          const x2 = hull[j][0] - cx, y2 = hull[j][1] - cy;
+          const den = (x2 - x1) * sa - (y2 - y1) * ca;
+          if (Math.abs(den) < 1e-9) continue;
+          const t = (y1 * ca - x1 * sa) / den;
+          if (t < 0 || t > 1) continue;
+          const d = (x1 + (x2 - x1) * t) * ca + (y1 + (y2 - y1) * t) * sa;
+          if (d > best) best = d;
         }
-        out.push([cx + ca * far, cy + sa * far]);
+        out.push([cx + ca * best, cy + sa * best]);
       }
       return out;
     };
@@ -1791,6 +1802,7 @@ const DICT_B64 = "H4sIAAAAAAACA2RdaZPjKBL9Pv9SXWbU7FpWDQLHVP/6DZH5DrwR3cXLkyMTCa
         .attr("class", "hull").attr("fill", (d) => `hsl(${hueOf(d[0])} 62% ${isDark() ? 52 : 44}%)`)
         .attr("d", (d) => {
           const target = clanShape(d[1]);
+          if (!target) return null;
           const prev = smooth.get(d[0]);
           const cur = (prev && prev.length === RAYS)            // amorti : la zone suit sans à-coups
             ? target.map((p, i) => [prev[i][0] + (p[0] - prev[i][0]) * .35, prev[i][1] + (p[1] - prev[i][1]) * .35])
