@@ -48,13 +48,16 @@ lorsqu'un joueur se connecte.
 |---|---|
 | `node ops/parrainage.mjs import` | Crée les fiches des **comptes** existants |
 | `node ops/parrainage.mjs import --invites` | Y ajoute les invités ayant déjà marqué |
-| `node ops/parrainage.mjs list` | Tous les joueurs : pseudo, code, dernière visite, parrain |
-| `node ops/parrainage.mjs orphelins` | Ceux qui n'ont pas encore de parrain |
+| `node ops/parrainage.mjs list` | Tous les joueurs : pseudo, e-mail, code, dernière visite, parrain |
+| `node ops/parrainage.mjs orphelins` | Ceux qui n'ont pas encore de parrain (avec e-mail) |
 | `node ops/parrainage.mjs arbre` | L'arbre complet, en indentation |
 | `node ops/parrainage.mjs set "Filleul" "Parrain"` | Rattache Filleul à Parrain |
 | `node ops/parrainage.mjs unset "Filleul"` | Le détache (il redevient une souche) |
 | `node ops/parrainage.mjs del "Pseudo"` | Supprime sa fiche ; ses filleuls remontent à son parrain |
 | `node ops/parrainage.mjs del "Pseudo" --detacher` | Idem, mais ses filleuls deviennent des souches |
+
+L'e-mail vient de `auth.db` : il n'existe que pour les **comptes**. Les invités
+apparaissent avec la mention `(invité)`, un compte sans e-mail avec `—`.
 
 **Les pseudos peuvent être partiels**, sans accents ni respect de la casse : `"lena"`
 trouve `Léna`, `"Moulinex"` trouve `MoulinexTurbo100`. Si plusieurs joueurs correspondent,

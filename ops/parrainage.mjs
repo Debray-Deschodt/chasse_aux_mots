@@ -26,6 +26,17 @@ import { execFile } from "node:child_process";
 const db = createClient({ url: process.env.SCORES_DB || "file:./scores.db" });
 const deacc = (s) => String(s).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
 
+// Emails des comptes (auth.db). Les invités n'en ont pas.
+async function emails() {
+  const m = new Map();
+  try {
+    const authDb = createClient({ url: process.env.AUTH_DB || "file:./auth.db" });
+    const r = await authDb.execute("SELECT id, email FROM user");
+    for (const x of r.rows) if (x.email) m.set("u:" + String(x.id), String(x.email));
+  } catch {}                                                   // auth.db absente : on affiche sans
+  return m;
+}
+
 async function all() {
   const r = await db.execute("SELECT id, code, name, parent, seen FROM referrals");
   return r.rows.map((x) => ({
@@ -147,18 +158,24 @@ if (cmd === "import") { await importer(process.argv.includes("--invites")); awai
 const gens = await all();
 
 if (!cmd || cmd === "list") {
+  const mails = await emails();
   console.log(`${gens.length} joueur(s) :\n`);
   const byId = new Map(gens.map((g) => [g.id, g]));
   for (const g of gens.sort((x, y) => x.name.localeCompare(y.name, "fr"))) {
     const p = g.parent && byId.get(g.parent);
     const vu = g.seen ? new Date(g.seen).toLocaleDateString("fr-FR") : "?";
-    console.log(`  ${g.name.padEnd(24)} code ${g.code}   vu le ${vu}   ${p ? "← " + p.name : "(souche)"}`);
+    const mail = mails.get(g.id) || (g.id.startsWith("u:") ? "—" : "(invité)");
+    console.log(`  ${g.name.padEnd(24)} ${mail.padEnd(28)} code ${g.code}   vu le ${vu}   ${p ? "← " + p.name : "(souche)"}`);
   }
 } else if (cmd === "orphelins") {
+  const mails = await emails();
   const byId = new Map(gens.map((g) => [g.id, g]));
   const orph = gens.filter((g) => !g.parent || !byId.has(g.parent));
   console.log(`${orph.length} joueur(s) sans parrain :\n`);
-  for (const g of orph.sort((x, y) => x.name.localeCompare(y.name, "fr"))) console.log(`  ${g.name}   (code ${g.code})`);
+  for (const g of orph.sort((x, y) => x.name.localeCompare(y.name, "fr"))) {
+    const mail = mails.get(g.id) || (g.id.startsWith("u:") ? "—" : "(invité)");
+    console.log(`  ${g.name.padEnd(24)} ${mail.padEnd(28)} code ${g.code}`);
+  }
 } else if (cmd === "arbre") {
   afficherArbre(gens);
 } else if (cmd === "set") {
