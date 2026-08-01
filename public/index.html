@@ -1683,11 +1683,6 @@ const DICT_B64 = "H4sIAAAAAAACA2RdaZPjKBL9Pv9SXWbU7FpWDQLHVP/6DZH5DrwR3cXLkyMTCa
       const keep = graphPos.get(n.id);
       if (!keep) continue;
       n.x = W/2 + keep.nx * SCALE; n.y = H/2 + keep.ny * SCALE;
-      if (keep.pinned && keep.anx != null){
-        n.pinned = true;
-        n.ax = W/2 + keep.anx * SCALE; n.ay = H/2 + keep.any * SCALE;
-        if (keep.rrx != null){ n.rx = keep.rrx * SCALE; n.ry = keep.rry * SCALE; }
-      }
     }
     const nodeById = new Map(nodes.map((n) => [n.id, n]));
 
@@ -1710,31 +1705,14 @@ const DICT_B64 = "H4sIAAAAAAACA2RdaZPjKBL9Pv9SXWbU7FpWDQLHVP/6DZH5DrwR3cXLkyMTCa
       .text((d) => { const n = d.name.replace(/\d+$/, ""); return n.length > 15 ? n.slice(0, 14) + "…" : n; });
     node.attr("transform", (d) => `translate(${d.x},${d.y})`);
 
-    // Une bête déplacée est ancrée PAR RAPPORT À SON PARRAIN : si le parrain bouge ensuite,
-    // elle le suit en gardant l'écart qu'on lui a donné. Force sur mesure car forceX/forceY
-    // figent leurs cibles à l'initialisation et ignoreraient le déplacement du parrain.
-    const parentOf = (d) => { const e = byCode.get(d.id); return e && e.parent ? nodeById.get(e.parent) : null; };
-    function anchorForce(alpha){
-      for (const d of nodes){
-        let tx, ty, k;
-        if (d.pinned){
-          const p = parentOf(d);
-          if (p && d.rx != null){ tx = p.x + d.rx; ty = p.y + d.ry; }   // écart conservé avec le parrain
-          else { tx = d.ax; ty = d.ay; }                                // souche : position absolue
-          k = .9;
-        } else { tx = W/2; ty = H/2; k = .055; }
-        d.vx += (tx - d.x) * k * alpha;
-        d.vy += (ty - d.y) * k * alpha;
-      }
-    }
     const sim = d3.forceSimulation(nodes)
       // liens courts et fermes : chaque bête colle à sa nichée
       .force("link", d3.forceLink(links).id((d) => d.id).distance((d) => 46 + rOf(d.source) * .4).strength(.55))
       .force("charge", d3.forceManyBody().strength(-160))
-      .force("anchor", anchorForce)                            // ancrage RELATIF au parrain (voir ci-dessous)
+      .force("x", d3.forceX(W/2).strength(.05))
+      .force("y", d3.forceY(H/2).strength(.06))
       .force("collide", d3.forceCollide((d) => rOf(d) + 5).strength(1).iterations(3))
       .alpha(.8);
-    const refreshAnchors = () => {};                           // la force sur mesure lit l'état à chaque tick
 
     let k = 1, ticks = 0, lineage = new Set(), selId = "";
     const order = [...nodes].sort((a, b) => (b.me?1:0)-(a.me?1:0) || b.size - a.size);
@@ -1884,13 +1862,7 @@ const DICT_B64 = "H4sIAAAAAAACA2RdaZPjKBL9Pv9SXWbU7FpWDQLHVP/6DZH5DrwR3cXLkyMTCa
       drag = null;
       if (!moved){ d.fx = d.fy = null; return; }
       sim.alphaTarget(0);
-      d.ax = d.fx != null ? d.fx : d.x; d.ay = d.fy != null ? d.fy : d.y;
-      const par = parentOf(d);
-      if (par){ d.rx = d.ax - par.x; d.ry = d.ay - par.y; }     // on retient l'écart, pas la position
-      else { d.rx = d.ry = null; }
-      d.pinned = true;
-      d.fx = d.fy = null;                                      // ancré, mais toujours soumis à la collision
-      refreshAnchors();
+      d.fx = d.fy = null;                                      // relâchée : elle redevient une bête comme les autres
       sim.alpha(.35).restart();
     };
     node.on("pointerup", endDrag).on("pointercancel", endDrag);
@@ -1922,14 +1894,7 @@ const DICT_B64 = "H4sIAAAAAAACA2RdaZPjKBL9Pv9SXWbU7FpWDQLHVP/6DZH5DrwR3cXLkyMTCa
     // en conservant la disposition (positions et bêtes ancrées).
     toggleFullscreen = (want) => {
       const on = want === undefined ? !host.classList.contains("full") : want;
-      graphPos = new Map(nodes.map((n) => [n.id, {
-        nx: (n.x - W/2) / SCALE, ny: (n.y - H/2) / SCALE,
-        pinned: !!n.pinned,
-        anx: n.ax != null ? (n.ax - W/2) / SCALE : null,
-        any: n.ay != null ? (n.ay - H/2) / SCALE : null,
-        rrx: n.rx != null ? n.rx / SCALE : null,               // écart au parrain, en relatif
-        rry: n.ry != null ? n.ry / SCALE : null,
-      }]));
+      graphPos = new Map(nodes.map((n) => [n.id, { nx: (n.x - W/2) / SCALE, ny: (n.y - H/2) / SCALE }]));
       host.classList.toggle("full", on);
       document.body.classList.toggle("noscroll", on);
       mountGraph();
