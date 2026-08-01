@@ -47,14 +47,25 @@ async function all() {
   }));
 }
 
-function trouver(gens, q) {
+// Retrouve UNE fiche à partir d'un pseudo (même partiel) ou d'un code exact.
+// Le code sert justement à départager les doublons (même pseudo, deux appareils).
+function trouver(gens, q, verbe = "") {
   const t = deacc(q).trim();
+  const parCode = gens.filter((g) => g.code.toLowerCase() === t);
+  if (parCode.length === 1) return parCode[0];
   const exact = gens.filter((g) => deacc(g.name) === t);
   const hits = exact.length ? exact : gens.filter((g) => deacc(g.name).includes(t));
   if (!hits.length) { console.error(`✗ Aucun joueur ne correspond à « ${q} »`); process.exit(1); }
   if (hits.length > 1) {
-    console.error(`✗ « ${q} » correspond à ${hits.length} joueurs, précise :`);
-    for (const h of hits) console.error(`    ${h.name}   (code ${h.code})`);
+    const byId = new Map(gens.map((g) => [g.id, g]));
+    console.error(`✗ ${hits.length} fiches correspondent à « ${q} ». Reprends la commande avec le code :\n`);
+    for (const h of hits.sort((x, y) => y.seen - x.seen)) {
+      const vu = h.seen ? new Date(h.seen).toLocaleDateString("fr-FR") : "?";
+      const filleuls = gens.filter((g) => g.parent === h.id).length;
+      const parrain = h.parent && byId.get(h.parent);
+      console.error(`    ${h.name.padEnd(22)} vu le ${vu}   ${filleuls} filleul(s)   ${parrain ? "← " + parrain.name : "(souche)"}`);
+      console.error(`      node ops/parrainage.mjs ${verbe || "<commande>"} "${h.code}"`);
+    }
     process.exit(1);
   }
   return hits[0];
@@ -236,7 +247,7 @@ if (!cmd || cmd === "list") {
   afficherArbre(gens);
 } else if (cmd === "set") {
   if (!a || !b) { console.error("Usage : node ops/parrainage.mjs set \"Filleul\" \"Parrain\""); process.exit(1); }
-  const filleul = trouver(gens, a), parrain = trouver(gens, b);
+  const filleul = trouver(gens, a, "set"), parrain = trouver(gens, b, "set");
   if (filleul.id === parrain.id) { console.error("✗ Un joueur ne peut pas être son propre parrain."); process.exit(1); }
   // anti-boucle : le parrain ne doit pas déjà descendre du filleul
   const byId = new Map(gens.map((g) => [g.id, g]));
@@ -249,13 +260,13 @@ if (!cmd || cmd === "list") {
   await rechargerServeur();
 } else if (cmd === "unset") {
   if (!a) { console.error("Usage : node ops/parrainage.mjs unset \"Filleul\""); process.exit(1); }
-  const filleul = trouver(gens, a);
+  const filleul = trouver(gens, a, "unset");
   await db.execute({ sql: "UPDATE referrals SET parent = '' WHERE id = ?", args: [filleul.id] });
   console.log(`✓ ${filleul.name} n'a plus de parrain (souche)`);
   await rechargerServeur();
 } else if (cmd === "del" || cmd === "supprimer") {
   if (!a) { console.error("Usage : node ops/parrainage.mjs del \"Pseudo\" [--detacher]"); process.exit(1); }
-  const cible = trouver(gens, a);
+  const cible = trouver(gens, a, "del");
   const filleuls = gens.filter((g) => g.parent === cible.id);
   const detacher = process.argv.includes("--detacher");
   // Ses filleuls ne doivent pas rester accrochés à une fiche disparue :

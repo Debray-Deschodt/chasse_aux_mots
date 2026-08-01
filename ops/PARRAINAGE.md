@@ -65,6 +65,9 @@ apparaissent avec la mention `(invité)`, un compte sans e-mail avec `—`.
 trouve `Léna`, `"Moulinex"` trouve `MoulinexTurbo100`. Si plusieurs joueurs correspondent,
 la commande s'arrête et te les liste — elle ne devine jamais.
 
+**Tu peux aussi donner le code à la place du pseudo** (`"AUX3G4"`) : c'est ce qui permet de
+désigner précisément une fiche quand deux joueurs portent le même nom.
+
 ---
 
 ## Cas d'usage
@@ -112,6 +115,38 @@ nombre de parties et leur dernière visite :
 ```
 
 Choisis en général celui qui a le plus de parties et la visite la plus récente.
+
+### Supprimer un doublon
+
+Un invité ayant joué depuis deux appareils apparaît deux fois. Repère-les :
+
+```bash
+node ops/parrainage.mjs list
+```
+
+```
+  Léna    (invité)   code AUX3G4   vu le 01/08/2026   ← MoulinexTurbo100
+  Léna    (invité)   code 7MFV3Q   vu le 01/08/2026   (souche)
+```
+
+Si tu tapes `del "Léna"`, la commande refuse de choisir et t'affiche les deux fiches avec
+leur nombre de filleuls et leur parrain, plus la commande exacte à copier :
+
+```
+✗ 2 fiches correspondent à « Léna ». Reprends la commande avec le code :
+
+    Léna     vu le 01/08/2026   1 filleul(s)   ← MoulinexTurbo100
+      node ops/parrainage.mjs del "AUX3G4"
+    Léna     vu le 01/08/2026   0 filleul(s)   (souche)
+      node ops/parrainage.mjs del "7MFV3Q"
+```
+
+**Garde la fiche la plus riche** (celle qui a un parrain et des filleuls) et supprime
+l'autre :
+
+```bash
+node ops/parrainage.mjs del "7MFV3Q"
+```
 
 ### Nouveau joueur à rattacher
 
