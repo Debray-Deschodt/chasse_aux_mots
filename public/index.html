@@ -83,7 +83,7 @@ body:not(.online) #accountBtn{display:none}
 #settingsModal{z-index:60}
 #animalsModal{z-index:60}
 #treeModal{z-index:60}
-#treeCard{max-height:min(92vh, 100dvh - 44px); display:flex; flex-direction:column; overflow:hidden}
+#treeCard{height:min(92vh, 100dvh - 44px); max-height:min(92vh, 100dvh - 44px); display:flex; flex-direction:column; overflow:hidden}
 #treeCard .kicker, #treeCard h2, #treeCard .anhint, #treeCard .refbar, #treeCard #treeClose{flex:0 0 auto}
 .treewrap{flex:1 1 auto; min-height:0; overflow-y:auto; overflow-x:hidden; -webkit-overflow-scrolling:touch; overscroll-behavior:contain; margin:6px 0 12px}
 
@@ -95,7 +95,7 @@ body:not(.online) #accountBtn{display:none}
 .crumbs .cur{color:var(--muted)}
 .crumbs .mine{margin-left:auto; color:var(--magenta); font-weight:800}
 .treewrap.graph{display:flex; flex-direction:column; overflow:hidden}
-.treewrap.graph .disc{flex:1 1 auto; height:auto !important; min-height:120px}
+.treewrap.graph .disc{flex:1 1 auto; height:auto !important; min-height:200px}
 .treewrap.graph .tstats, .treewrap.graph .ttabs, .treewrap.graph .discsel{flex:0 0 auto}
 
 /* Le foyer où l'on se trouve */
@@ -1624,7 +1624,7 @@ const DICT_B64 = "H4sIAAAAAAACA2RdaZPjKBL9Pv9SXWbU7FpWDQLHVP/6DZH5DrwR3cXLkyMTCa
     let maxDepth = 0;
     for (const n of treeNodes) maxDepth = Math.max(maxDepth, pathTo(n.code).length - 1);
     return `<div class="tstats">${treeNodes.length} joueurs · ${branchCount} meute${branchCount>1?"s":""} · ${maxDepth + 1} génération${maxDepth?"s":""}</div>
-      <div class="disc" id="disc" style="height:min(48vh,420px)"><div class="dload">Chargement de la basse-cour…</div></div>
+      <div class="disc" id="disc" style="height:min(62vh,560px)"><div class="dload">Chargement de la basse-cour…</div></div>
       <div class="discsel" id="discSel"><span class="hint">Double-clic sur un profil pour l'afficher.</span></div>`;
   }
   async function mountGraph(){
